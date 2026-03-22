@@ -1,0 +1,20 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "module description"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "description"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "网址收藏夹"
+    },
+    {
+      "name": "permission_vibrate_reason",
+      "value": "在点击与切换页面时提供轻微触感反馈"
+    }
+  ]
+}
