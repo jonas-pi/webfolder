@@ -2,12 +2,11 @@
 /** 0 = 无面板 */
 export const SHEET_NONE: number = 0;
 export const SHEET_BACKGROUND: number = 1;
-export const SHEET_ACCOUNT: number = 2;
-export const SHEET_SEARCH_SETTINGS: number = 3;
-export const SHEET_NEW_BOOKMARK: number = 4;
-export const SHEET_RENAME_FOLDER: number = 5;
-export const SHEET_MOVE_BOOKMARK: number = 6;
-export const SHEET_EDIT_BOOKMARK: number = 7;
+export const SHEET_SEARCH_SETTINGS: number = 2;
+export const SHEET_NEW_BOOKMARK: number = 3;
+export const SHEET_RENAME_FOLDER: number = 4;
+export const SHEET_MOVE_BOOKMARK: number = 5;
+export const SHEET_EDIT_BOOKMARK: number = 6;
 
 // ── 业务限制 ─────────────────────────────────────────────────────────────────
 /** 书签文件夹路径层级上限（与 Edge「文件夹 / 子文件夹」一致） */
@@ -70,11 +69,6 @@ export const OPTION_ROW_PAD_H_VP: number = 16;
 export const OPTION_ROW_PAD_V_VP: number = 8;
 /** 含 Slider 的卡片上下内边距 */
 export const OPTION_SLIDER_CARD_PAD_VP: number = 12;
-/** 登录卡片头像尺寸 */
-export const ACCOUNT_LOGIN_CARD_AVATAR_VP: number = 44;
-/** 登录卡片圆角 */
-export const ACCOUNT_LOGIN_CARD_RADIUS_VP: number = 24;
-
 // ── 默认值 ────────────────────────────────────────────────────────────────────
 /** 默认背景虚化强度 */
 export const DEFAULT_BACKGROUND_BLUR: number = 24;

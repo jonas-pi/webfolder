@@ -29,20 +29,8 @@ export interface SettingsCache {
   backgroundImagePath: string;
   backgroundBlurLevel: string;
   backgroundBrightnessLevel: string;
-  accountStatus: string;
-  accountName: string;
-  accountAvatarUrl: string;
   searchEngineIndex?: string;
   searchBoxPosition?: string;
-}
-
-export interface AccountProfileData {
-  nickName?: string;
-  avatarUri?: string;
-}
-
-export interface AccountAuthResult {
-  data?: AccountProfileData;
 }
 
 export interface FaviconCacheItem {

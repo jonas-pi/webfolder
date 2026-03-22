@@ -4,9 +4,6 @@ export interface SettingsStateSnapshot {
   backgroundImagePath: string;
   backgroundBlurLevel: number;
   backgroundBrightnessLevel: number;
-  accountStatus: string;
-  accountName: string;
-  accountAvatarUrl: string;
   searchEngineIndex: number;
   searchBoxPosition: number;
 }
@@ -16,9 +13,6 @@ export function buildSettingsCache(snapshot: SettingsStateSnapshot): SettingsCac
     backgroundImagePath: snapshot.backgroundImagePath,
     backgroundBlurLevel: `${snapshot.backgroundBlurLevel}`,
     backgroundBrightnessLevel: `${snapshot.backgroundBrightnessLevel}`,
-    accountStatus: snapshot.accountStatus,
-    accountName: snapshot.accountName,
-    accountAvatarUrl: snapshot.accountAvatarUrl,
     searchEngineIndex: `${snapshot.searchEngineIndex}`,
     searchBoxPosition: `${snapshot.searchBoxPosition}`
   };
@@ -49,15 +43,6 @@ export function applySettingsCache(
     if (!Number.isNaN(parsedBrightness)) {
       patch.backgroundBrightnessLevel = parsedBrightness;
     }
-  }
-  if (restored.accountStatus !== undefined) {
-    patch.accountStatus = restored.accountStatus;
-  }
-  if (restored.accountName !== undefined) {
-    patch.accountName = restored.accountName;
-  }
-  if (restored.accountAvatarUrl !== undefined) {
-    patch.accountAvatarUrl = restored.accountAvatarUrl;
   }
   if (restored.searchEngineIndex !== undefined) {
     const parsedSe: number = Number(restored.searchEngineIndex);
