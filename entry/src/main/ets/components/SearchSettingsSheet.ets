@@ -1,4 +1,5 @@
 import type { SearchEngineItem } from '../model/IndexTypes';
+import { sheetEnterExitTransition } from '../utils';
 
 export interface SearchSettingsSheetProps {
   navChromeBg: ResourceColor;
@@ -173,5 +174,6 @@ export function BuildSearchSettingsSheet(props: SearchSettingsSheetProps) {
   }
   .width('100%')
   .height('100%')
+  .transition(sheetEnterExitTransition())
   .backgroundColor(props.navChromeBg)
 }

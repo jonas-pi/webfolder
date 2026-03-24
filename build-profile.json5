@@ -5,13 +5,26 @@
         "name": "default",
         "type": "HarmonyOS",
         "material": {
-          "storeFile": "D:/Users/picha/Desktop/project/keystore/网址收藏夹.p12",
-          "storePassword": "00000018C490AF70870C5053CAFB7B7BAC9B50F9DDA87D6024C22F7F587E95E4478129E62195AF57",
-          "keyAlias": "WebBookmarks",
-          "keyPassword": "00000018CF29F34145A8F90562622F3E8ABE7ABB2809FBACBCE6D5ADD305D14C28148C4BC3371778",
+          "certpath": "C:/Users/picha/.ohos/config/default_HM_atFxStLSE2Ikwl4MZK9jMFt10OB0OJ50t-w-6gFtecA=.cer",
+          "keyAlias": "debugKey",
+          "keyPassword": "0000001BF8E9BF71A2386B3DC35C96883E146C66147E68177ED20A534C033DC32D4C9825CC1D5B7A0D79D2",
+          "profile": "C:/Users/picha/.ohos/config/default_HM_atFxStLSE2Ikwl4MZK9jMFt10OB0OJ50t-w-6gFtecA=.p7b",
           "signAlg": "SHA256withECDSA",
+          "storeFile": "C:/Users/picha/.ohos/config/default_HM_atFxStLSE2Ikwl4MZK9jMFt10OB0OJ50t-w-6gFtecA=.p12",
+          "storePassword": "0000001B54156E3529D7A05C65467F5BB73F0F88936AFAA5D29A6EB6862D824D8F121EAD90F1F748ED4C0E"
+        }
+      },
+      {
+        "name": "release",
+        "type": "HarmonyOS",
+        "material": {
+          "certpath": "D:/Users/picha/Downloads/WebBookmarks.cer",
+          "keyAlias": "releasekey",
+          "keyPassword": "00000018D8011F1C0E26E17BFC188EAE5DB4201990A701A802BEDEAAE09B68150CBAAE3A19147EAB",
           "profile": "D:/Users/picha/Downloads/WebBookmarksRelease.p7b",
-          "certpath": "D:/Users/picha/Downloads/WebBookmarks.cer"
+          "signAlg": "SHA256withECDSA",
+          "storeFile": "D:/Users/picha/Desktop/project/keystore/网址收藏夹.p12",
+          "storePassword": "0000001885F3C7637CD8B6E0B62EA64E261D47DCBA26127D5F55D5CF6E4CC40EEFC8A0986AD468F9"
         }
       }
     ],

@@ -1,8 +1,9 @@
 import { common } from '@kit.AbilityKit';
+// BarMode / BarPosition / TabsController 由 ArkUI 声明式框架注入为全局符号，勿从 @kit.ArkUI 导入（与 SDK 6.x Kit 导出表一致）
 import { curves, window } from '@kit.ArkUI';
 import vibrator from '@ohos.vibrator';
 import {
-  NAV_TAB_ICON_ANIM_MS, TAB_SWIPE_DURATION_MS, TITLE_BAR_HEIGHT_VP, TITLE_BAR_FONT_SIZE,
+  NAV_TAB_ICON_ANIM_MS, TAB_SWIPE_DURATION_MS, TITLE_CONTENT_GAP_VP,
   BOTTOM_NAV_BAR_HEIGHT_VP, BOTTOM_INDICATOR_SAFE_VP, DEFAULT_BACKGROUND_BLUR,
   DEFAULT_BACKGROUND_BRIGHTNESS
 } from '../constants/AppLayout';
@@ -10,17 +11,21 @@ import { backgroundMaskColorFromBrightness, isBackgroundGifPath } from '../utils
 import { BookmarkTabComp } from '../components/BookmarkTabComp';
 import { SettingsTabComp } from '../components/SettingsTabComp';
 import { SearchPageComp } from '../components/SearchPage';
+import { MainTabTitleBar } from '../components/chrome/MainTabTitleBar';
 
-// ── 应用根入口：负责导航框架 + 壁纸渲染 + 状态 @Provide ──────────────────────
+/**
+ * 应用根入口：壁纸 + 主框架。
+ * 主框架对齐 ClashBox：Tabs + TabContent（顶栏标题在各自 Tab 内容区内），
+ * 状态栏占位顶 padding，底栏由 Tabs 的 tabBar 承担。
+ */
 @Entry
 @Component
 struct Index {
-  // ── 导航 ──────────────────────────────────────────────────────────────────
+  // ── 导航（与 Tabs index 绑定） ────────────────────────────────────────────
   @State private currentTab: number = 0;
-  private swiperController: SwiperController = new SwiperController();
+  private tabsController: TabsController = new TabsController();
 
   // ── 壁纸状态（Index build() 使用 + SettingsTabComp @Consume 修改） ────────
-  // @Provide 本身已具备响应式能力，不需要叠加 @State
   @Provide('bgPath') backgroundImagePath: string = '';
   @Provide('bgBlur') backgroundBlurLevel: number = DEFAULT_BACKGROUND_BLUR;
   @Provide('bgBrightness') backgroundBrightnessLevel: number = DEFAULT_BACKGROUND_BRIGHTNESS;
@@ -32,13 +37,15 @@ struct Index {
   /** 设置里保存的「默认搜索引擎」索引（持久化） */
   @Watch('onSearchEngineDefaultChanged') @Provide('searchEngineIdx') searchEngineIndex: number = 0;
   @Provide('searchBoxPos') searchBoxPosition: number = 0;
+  /** 每次进入「我的」页时递增，用于触发设置页图标转场重播 */
+  @Provide('settingsTabAnimEpoch') settingsTabAnimEpoch: number = 0;
   /**
    * 搜索页当前使用的引擎（仅本次会话，点左侧图标在菜单里切换；不写回设置）。
    * 默认引擎变更时通过 onSearchEngineDefaultChanged 与 searchEngineIndex 对齐。
    */
   @State private searchSessionEngineIndex: number = 0;
 
-  // ── 触发器：Index 顶栏 → BookmarkTabComp 动作 ─────────────────────────────
+  // ── 触发器：收藏夹 Tab 顶栏 → BookmarkTabComp 动作 ───────────────────────
   @Provide('openNewBookmarkReq') openNewBookmarkReq: number = 0;
   @Provide('importBookmarksReq') importBookmarksReq: number = 0;
   @Provide('backPressCloseReq') backPressCloseReq: number = 0;
@@ -52,8 +59,6 @@ struct Index {
   /** 用于注销窗口事件，避免重复订阅 */
   private mainWindowRef: window.Window | null = null;
   private windowSizeChangeHandler: (() => void) | null = null;
-  // ── 加号按钮菜单展开时的旋转角度 ─────────────────────────────────────────
-  @State private plusRotation: number = 0;
 
   // ── 工具方法 ───────────────────────────────────────────────────────────────
   private lightHaptic(): void {
@@ -63,10 +68,6 @@ struct Index {
 
   private rowClickEffect(): ClickEffect {
     return { level: ClickEffectLevel.MIDDLE, scale: 0.95 };
-  }
-
-  private iconClickEffect(): ClickEffect {
-    return { level: ClickEffectLevel.LIGHT, scale: 0.95 };
   }
 
   private navChromeBackgroundColor(): ResourceColor {
@@ -91,10 +92,6 @@ struct Index {
     } catch (_e) {}
   }
 
-  private mainPageTitle(): string {
-    return (['收藏夹', '搜索', '我的'])[this.currentTab];
-  }
-
   // ── 搜索相关 ───────────────────────────────────────────────────────────────
   /** 默认搜索引擎变化时，搜索页会话引擎与之对齐（导入设置、在「我的」里改默认等） */
   private onSearchEngineDefaultChanged(): void {
@@ -107,61 +104,7 @@ struct Index {
     return Alignment.TopStart;
   }
 
-  // ── @Builder：顶栏 ─────────────────────────────────────────────────────────
-  @Builder
-  private BookmarkAddMenuBuilder() {
-    Menu() {
-      MenuItem({ content: '新建收藏' })
-        .onClick(() => {
-          this.plusRotation = 0;
-          this.openNewBookmarkReq++;
-        })
-      MenuItem({ content: '导入收藏' })
-        .onClick(() => {
-          this.plusRotation = 0;
-          this.lightHaptic();
-          this.importBookmarksReq++;
-        })
-    }
-  }
-
-  @Builder
-  private MainHeader() {
-    Row() {
-      Text(this.mainPageTitle())
-        .fontSize(TITLE_BAR_FONT_SIZE)
-        .fontWeight(FontWeight.Bold)
-        .fontColor($r('sys.color.ohos_id_color_text_primary'))
-        .layoutWeight(1)
-        .textAlign(TextAlign.Start)
-      if (this.currentTab === 0) {
-        SymbolGlyph($r('sys.symbol.plus'))
-          .fontSize(24)
-          .fontColor([$r('sys.color.icon_secondary')])
-          .rotate({ angle: this.plusRotation })
-          .animation({ duration: 280, curve: Curve.FastOutSlowIn })
-          .clickEffect(this.iconClickEffect())
-          .onTouch((event: TouchEvent) => {
-            if (event.type === TouchType.Down) { this.plusRotation = 135; }
-          })
-          .bindMenu(this.BookmarkAddMenuBuilder, {
-            // 点击菜单项时 onClick 已重置旋转；点击外部关闭时此处兜底
-            // 用 duration:0 让按钮在菜单消失后立即归位，避免迟滞残影
-            onDisappear: (): void => {
-              animateTo({ duration: 0 }, () => { this.plusRotation = 0; });
-            }
-          })
-      }
-    }
-    .width('100%')
-    .height(TITLE_BAR_HEIGHT_VP)
-    .padding({ left: 16, right: 16, top: 0, bottom: 0 })
-    .alignItems(VerticalAlign.Center)
-    .backgroundColor(this.navChromeBackgroundColor())
-    // 与下方 Swiper.clip(false) + 书签 List 负 margin 叠加时，后绘制的 Swiper 会盖住标题；抬高 zIndex 保证标题区不被覆盖
-    .zIndex(1)
-  }
-
+  /** 底栏单项外观（点击由 Tabs 统一处理，此处仅展示） */
   @Builder
   private BottomNavTab(label: string, tabId: number, symbol: Resource) {
     Column({ space: 3 }) {
@@ -170,14 +113,14 @@ struct Index {
         .fontColor([this.currentTab === tabId ? $r('sys.color.ohos_id_color_emphasize') :
           $r('sys.color.icon_tertiary')])
         .translate({ y: this.currentTab === tabId ? -3 : 0 })
-        .animation({ duration: NAV_TAB_ICON_ANIM_MS, curve: Curve.FastOutSlowIn })
+        .animation({ duration: NAV_TAB_ICON_ANIM_MS, curve: curves.springMotion(0.5, 0.7, 0.6) })
       Text(label)
         .fontSize(10)
         .fontWeight(FontWeight.Medium)
         .fontColor(this.currentTab === tabId ? $r('sys.color.ohos_id_color_emphasize') :
           $r('sys.color.icon_tertiary'))
         .translate({ y: this.currentTab === tabId ? -1 : 0 })
-        .animation({ duration: NAV_TAB_ICON_ANIM_MS, curve: Curve.FastOutSlowIn })
+        .animation({ duration: NAV_TAB_ICON_ANIM_MS, curve: curves.springMotion(0.5, 0.7, 0.6) })
     }
     .width('100%')
     .height('100%')
@@ -186,13 +129,6 @@ struct Index {
     .padding({ top: 6, bottom: 6 })
     .layoutWeight(1)
     .clickEffect(this.rowClickEffect())
-    .onClick(() => {
-      if (this.currentTab !== tabId) {
-        this.swiperController.changeIndex(tabId, false);
-      } else {
-        this.lightHaptic();
-      }
-    })
   }
 
   @Builder
@@ -203,13 +139,18 @@ struct Index {
       searchSessionEngineIndex: $searchSessionEngineIndex,
       searchBoxAlignment: this.searchBoxStackAlignment(),
       bottomNavBarHeight: BOTTOM_NAV_BAR_HEIGHT_VP
-    });
+    })
+      .layoutWeight(1)
+      .width('100%');
   }
 
   // ── 生命周期 ───────────────────────────────────────────────────────────────
   aboutToAppear(): void {
     this.searchSessionEngineIndex = this.searchEngineIndex;
-    this.swiperController.changeIndex(0, false);
+    this.currentTab = 0;
+    this.searchEnginePickerOpen = false;
+    // SDK 6.x：changeIndex 仅接收目标索引；无第二参数控制动画（需关动画可短时设 Tabs.animationDuration(0)）
+    this.tabsController.changeIndex(0);
     try {
       const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
       window.getLastWindow(ctx).then((win: window.Window) => {
@@ -249,19 +190,15 @@ struct Index {
   // ── build ─────────────────────────────────────────────────────────────────
   build() {
     Column() {
-      // 内容区（壁纸 + 顶栏 + Swiper）
       Stack({ alignContent: Alignment.TopStart }) {
-        // 壁纸层
         if (this.backgroundImagePath.length > 0) {
           Image(this.backgroundImagePath)
             .width('100%')
             .height('100%')
             .objectFit(ImageFit.Cover)
-            // GIF：syncLoad 利于动图解码播放；静态图也可用
             .syncLoad(isBackgroundGifPath(this.backgroundImagePath))
             .blur(this.backgroundBlurLevel)
         }
-        // 亮度遮罩
         if (this.backgroundImagePath.length > 0) {
           Column()
             .width('100%')
@@ -269,80 +206,77 @@ struct Index {
             .backgroundColor(backgroundMaskColorFromBrightness(this.backgroundBrightnessLevel))
         }
 
-        // 主界面：状态栏带与标题栏同色（不显示壁纸）；下方为标题 + Swiper
         Column() {
-          // 系统状态栏占位区：与标题栏同色，随系统深浅色切换（壁纸不延伸到此）
           Column()
             .width('100%')
             .height(this.statusBarHeight)
             .backgroundColor(this.navChromeBackgroundColor())
 
-          Column() {
-            this.MainHeader()
-
-            // 标题与 Swiper 之间不再占位：书签列表用 margin+padding 抵消，滑动时可滚入该带；
-            // 搜索/设置 Tab 在各自根节点补回 TITLE_CONTENT_GAP_VP
-
-            Swiper(this.swiperController) {
+          Tabs({
+            barPosition: BarPosition.End,
+            index: this.currentTab,
+            controller: this.tabsController
+          }) {
+            TabContent() {
               BookmarkTabComp()
-              Column() { this.SearchPage() }
-                .width('100%')
-                .height('100%')
-              SettingsTabComp()
             }
-            .width('100%')
-            .layoutWeight(1)
-            // 降低预缓存页数，减轻 Swiper 对子页实例的保留，避免收藏夹 Tab 与数据不同步
-            .cachedCount(1)
-            .indicator(false)
-            .loop(false)
-            .duration(TAB_SWIPE_DURATION_MS)
-            .curve(curves.springMotion())
-            .disableSwipe(this.anySheetOpen)
-            .onChange((index: number) => {
-              if (index !== this.currentTab) { this.lightHaptic(); }
-              if (index !== 1) {
-                this.searchEnginePickerOpen = false;
+            .tabBar(this.BottomNavTab('收藏夹', 0, $r('sys.symbol.bookmark')))
+
+            TabContent() {
+              Column({ space: TITLE_CONTENT_GAP_VP }) {
+                MainTabTitleBar({ title: '搜索' })
+                this.SearchPage()
               }
-              this.currentTab = index;
-            })
-            .clip(false)
+              .width('100%')
+              .height('100%');
+            }
+            .tabBar(this.BottomNavTab('搜索', 1, $r('sys.symbol.magnifyingglass')))
+
+            TabContent() {
+              Column({ space: TITLE_CONTENT_GAP_VP }) {
+                MainTabTitleBar({ title: '我的' })
+                SettingsTabComp()
+                  .layoutWeight(1)
+                  .width('100%')
+              }
+              .width('100%')
+              .height('100%');
+            }
+            .tabBar(this.BottomNavTab('我的', 2, $r('sys.symbol.person')))
           }
           .width('100%')
           .layoutWeight(1)
+          .barOverlap(false)
+          .barMode(BarMode.Fixed)
+          .scrollable(!this.anySheetOpen)
+          .animationDuration(TAB_SWIPE_DURATION_MS)
+          .barHeight(BOTTOM_NAV_BAR_HEIGHT_VP + BOTTOM_INDICATOR_SAFE_VP)
+          .backgroundColor(Color.Transparent)
+          .barBackgroundColor(this.navChromeBackgroundColor())
+          .onChange((index: number) => {
+            const prevTab: number = this.currentTab;
+            if (index !== prevTab) {
+              this.lightHaptic();
+            }
+            if (index !== 1) {
+              this.searchEnginePickerOpen = false;
+            }
+            if (index === 2 && prevTab !== 2) {
+              this.settingsTabAnimEpoch = this.settingsTabAnimEpoch + 1;
+            }
+            this.currentTab = index;
+          })
         }
         .width('100%')
-        .height('100%')
-        // 背景预览时淡出主界面，让壁纸效果完整呈现给用户
-        // bindSheet 渲染在窗口层，不受此 opacity 影响，设置面板仍然可见
+        .layoutWeight(1)
         .opacity(this.bgPreviewActive ? 0 : 1)
         .animation({ duration: 180, curve: Curve.FastOutSlowIn })
       }
       .layoutWeight(1)
       .width('100%')
-      .foregroundBlurStyle(
-        (this.anySheetOpen && !this.bgPreviewActive) ? BlurStyle.Thin : BlurStyle.NONE,
-        { colorMode: ThemeColorMode.SYSTEM, adaptiveColor: AdaptiveColor.DEFAULT, scale: 0.3 }
-      )
-
-      // 底部导航栏（总高 = 内容区 + 小白条安全避让）
-      Row() {
-        this.BottomNavTab('收藏夹', 0, $r('sys.symbol.bookmark'));
-        this.BottomNavTab('搜索', 1, $r('sys.symbol.magnifyingglass'));
-        this.BottomNavTab('我的', 2, $r('sys.symbol.person'));
-      }
-      .width('100%')
-      .height(BOTTOM_NAV_BAR_HEIGHT_VP + BOTTOM_INDICATOR_SAFE_VP)
-      .alignItems(VerticalAlign.Top)
-      .padding({ left: 8, right: 8, top: 0, bottom: BOTTOM_INDICATOR_SAFE_VP })
-      .backgroundColor(this.navChromeBackgroundColor())
-      .opacity(this.bgPreviewActive ? 0 : 1)
-      .animation({ duration: 180, curve: Curve.FastOutSlowIn })
     }
     .height('100%')
     .width('100%')
-    // 仅扩展底部：避免与「状态栏占位 Column + getWindowAvoidArea」叠用导致顶部留白过大
-    // 顶部避让完全由 statusBarHeight（TYPE_SYSTEM → vp）控制，随分辨率/比例一致
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
   }
 }

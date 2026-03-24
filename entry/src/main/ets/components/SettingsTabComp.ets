@@ -7,7 +7,7 @@ import {
   OPTION_CARD_RADIUS_VP, OPTION_ROW_MIN_HEIGHT_VP, OPTION_ROW_PAD_H_VP, OPTION_ROW_PAD_V_VP,
   OPTION_SLIDER_CARD_PAD_VP, BOTTOM_NAV_BAR_HEIGHT_VP, TOAST_DURATION_SHORT_MS, TOAST_DURATION_LONG_MS,
   SHEET_NONE, SHEET_BACKGROUND, SHEET_SEARCH_SETTINGS, SHEET_MODE_RESET_DELAY_MS,
-  DEFAULT_BACKGROUND_BLUR, DEFAULT_BACKGROUND_BRIGHTNESS, TITLE_CONTENT_GAP_VP
+  DEFAULT_BACKGROUND_BLUR, DEFAULT_BACKGROUND_BRIGHTNESS
 } from '../constants/AppLayout';
 import { SEARCH_ENGINES } from '../constants/SearchEngines';
 import { buildSettingsCache, applySettingsCache, saveSettingsCache, loadSettingsCache } from '../services';
@@ -30,6 +30,7 @@ export struct SettingsTabComp {
   @Consume('bgBrightness') backgroundBrightnessLevel: number;
   @Watch('onSettingsChanged') @Consume('searchEngineIdx') searchEngineIndex: number;
   @Watch('onSettingsChanged') @Consume('searchBoxPos') searchBoxPosition: number;
+  @Consume('settingsTabAnimEpoch') settingsTabAnimEpoch: number;
   @Watch('onBackPressCloseChanged') @Consume('backPressCloseReq') backPressCloseReq: number = 0;
 
   @State private sheetVisible: boolean = false;
@@ -257,6 +258,7 @@ export struct SettingsTabComp {
   build() {
     Column() {
       BuildSettingsPage({
+        iconAnimEpoch: this.settingsTabAnimEpoch,
         optionRowMinHeight: OPTION_ROW_MIN_HEIGHT_VP,
         optionRowPadH: OPTION_ROW_PAD_H_VP,
         optionRowPadV: OPTION_ROW_PAD_V_VP,
@@ -271,7 +273,6 @@ export struct SettingsTabComp {
     }
     .width('100%')
     .height('100%')
-    .padding({ top: TITLE_CONTENT_GAP_VP })
     .bindSheet($$this.sheetVisible, this.UnifiedSheetBuilder(), {
       detents: [SheetSize.LARGE, SheetSize.MEDIUM],
       dragBar: false,

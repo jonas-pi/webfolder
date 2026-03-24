@@ -43,6 +43,7 @@ import {
   SHEET_ROUTE_EDIT_BOOKMARK, SHEET_ROUTE_FALLBACK_CLOSE
 } from './sheets';
 import { BookmarkPageComp } from './bookmark';
+import { MainTabTitleBar } from './chrome/MainTabTitleBar';
 
 // ── 书签 Tab：书签列表 + 所有书签操作面板 ─────────────────────────────────────
 @Component
@@ -97,6 +98,8 @@ export struct BookmarkTabComp {
   @State private sheetVisible: boolean = false;
   @State private sheetMode: number = SHEET_NONE;
   private sheetModeResetTimer: number = -1;
+  /** 顶栏「+」菜单打开时的旋转角（与 Index 原 MainHeader 行为一致） */
+  @State private plusRotation: number = 0;
 
   // ── @Watch 响应入口触发 ───────────────────────────────────────────────────
   private onNewBookmarkReqChanged(): void { this.openNewBookmarkSheet(); }
@@ -117,6 +120,23 @@ export struct BookmarkTabComp {
   private lightHaptic(): void {
     vibrator.startVibration({ type: 'time', duration: 10 }, { id: 0, usage: 'touch' })
       .catch((): void => {});
+  }
+
+  @Builder
+  private BookmarkAddMenuBuilder() {
+    Menu() {
+      MenuItem({ content: '新建收藏' })
+        .onClick(() => {
+          this.plusRotation = 0;
+          this.openNewBookmarkReq++;
+        })
+      MenuItem({ content: '导入收藏' })
+        .onClick(() => {
+          this.plusRotation = 0;
+          this.lightHaptic();
+          this.importBookmarksReq++;
+        })
+    }
   }
 
   // ── 文件路径 ──────────────────────────────────────────────────────────────
@@ -844,8 +864,28 @@ export struct BookmarkTabComp {
   // ── build ─────────────────────────────────────────────────────────────────
   build() {
     Column() {
+      // 标题属于本 Tab 内容区；尾部必须用「子组件块」绑定 @BuilderParam trailing（传 trailing: this.xxx 在真机上易为 undefined → trailing() 崩溃）
+      MainTabTitleBar({ title: '收藏夹' }) {
+        SymbolGlyph($r('sys.symbol.plus'))
+          .fontSize(24)
+          .fontColor([$r('sys.color.icon_secondary')])
+          .rotate({ angle: this.plusRotation })
+          .animation({ duration: 280, curve: Curve.FastOutSlowIn })
+          .onTouch((event: TouchEvent) => {
+            if (event.type === TouchType.Down) {
+              this.plusRotation = 135;
+            }
+          })
+          .bindMenu(this.BookmarkAddMenuBuilder, {
+            onDisappear: (): void => {
+              animateTo({ duration: 0 }, () => {
+                this.plusRotation = 0;
+              });
+            }
+          })
+      }
       // 用 ForEach + 数据版本字符串作唯一 key，强制销毁并重建 BookmarkPageComp，
-      // 避免仅 @Prop 更新时 List/侧滑子树在 Swiper/Sheet 场景下被复用导致「数据已变界面不变」。
+      // 避免仅 @Prop 更新时 List/侧滑子树在 Tabs/Sheet 场景下被复用导致「数据已变界面不变」。
       Column() {
         ForEach(
           [`${this.bookmarkRenderEpoch}_${this.bookmarkSwipeRestoreKey}`],
@@ -909,7 +949,7 @@ export struct BookmarkTabComp {
         }, (k: string) => `bookmark_page_${k}`)
       }
       .width('100%')
-      .height('100%')
+      .layoutWeight(1)
       .id(`bookmark_root_${this.bookmarkRenderEpoch}`);
     }
     .width('100%')

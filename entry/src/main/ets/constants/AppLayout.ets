@@ -16,9 +16,9 @@ export const BOOKMARK_FOLDER_MAX_DEPTH: number = 9;
 /** Sheet onWillDismiss 后延迟清空 sheetMode（让关闭动画走完），与「再次打开」互斥 */
 export const SHEET_MODE_RESET_DELAY_MS: number = 420;
 /** 主 Tab 切换动画时长（ms） */
-export const TAB_SWIPE_DURATION_MS: number = 300;
+export const TAB_SWIPE_DURATION_MS: number = 150;
 /** 底栏图标选中态动画时长（短于 Tab 切换，避免叠加重绘） */
-export const NAV_TAB_ICON_ANIM_MS: number = 160;
+export const NAV_TAB_ICON_ANIM_MS: number = 180;
 /** 收藏夹书签行出现动画时长 */
 export const BOOKMARK_NODE_APPEAR_MS: number = 350;
 /** 系统胶囊 Toast 短/长持续时长 */
@@ -42,13 +42,8 @@ export const TITLE_BAR_FONT_SIZE: number = 30;
 export const BOTTOM_NAV_BAR_HEIGHT_VP: number = 68;
 /** 底部手势条（小白条）安全避让高度；总栏高 = 内容区 + 此值 */
 export const BOTTOM_INDICATOR_SAFE_VP: number = 24;
-/** 标题栏与主内容（Swiper）之间的间距 */
+/** 标题栏与主内容区之间的间距（列表顶部 padding 等） */
 export const TITLE_CONTENT_GAP_VP: number = 10;
-/**
- * 书签 List 顶部 padding（与 marginTop = -TITLE_CONTENT_GAP_VP 成对）。
- * 净效果：文件夹首行与标题栏间距仍为 TITLE_CONTENT_GAP_VP，且列表仍可向上滚入标题下间隙。
- */
-export const BOOKMARK_LIST_TOP_PADDING_VP: number = TITLE_CONTENT_GAP_VP * 2;
 /**
  * 书签列表底部可滚入「内容与底栏」区域的高度（与原 List bottom 8 + 外层 Column bottom 16 一致），
  * 仅用于 margin/padding 抵消，不改变默认首末项位置。
@@ -58,7 +53,10 @@ export const BOOKMARK_LIST_SCROLL_EDGE_BOTTOM_VP: number = 24;
  * 长按拖动文件夹排序时缩放外溢：List 左右负 margin + 等量 padding，扩大可绘制区，
  * 避免卡片略放大时被 List 左右边缘裁切（与 OPTION_ROW_PAD_H_VP 叠加为水平内边距）。
  */
-export const BOOKMARK_LIST_DRAG_EDGE_BLEED_VP: number = 12;
+// 说明：原始实现为拖拽时卡片允许横向“溢出绘制”，但这会让收藏夹文件夹的可视宽度偏离设置选项。
+// 当前将其置为 0，保证收藏夹文件夹宽度与设置选项一致；如后续你需要恢复拖拽溢出效果，再按需调大该值。
+export const BOOKMARK_LIST_DRAG_EDGE_BLEED_VP: number = 0;
+export const __BOOKMARK_LIST_DRAG_EDGE_BLEED_VP_ORIGIN: number = 12;
 /** 分组卡片统一圆角 */
 export const OPTION_CARD_RADIUS_VP: number = 24;
 /** 双行主副标题行最小高度 */

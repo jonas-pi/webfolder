@@ -1,4 +1,5 @@
 import type { FolderTreeNode } from '../model/IndexTypes';
+import { sheetEnterExitTransition } from '../utils';
 
 export interface NewBookmarkSheetProps {
   navChromeBg: ResourceColor;
@@ -348,5 +349,6 @@ export function BuildNewBookmarkSheet(props: NewBookmarkSheetProps) {
   }
   .width('100%')
   .height('100%')
+  .transition(sheetEnterExitTransition())
   .backgroundColor(props.navChromeBg)
 }

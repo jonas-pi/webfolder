@@ -1,3 +1,5 @@
+import { sheetEnterExitTransition } from '../utils';
+
 export interface SheetFallbackProps {
   navChromeBg: ResourceColor;
   contentPrimary: Resource;
@@ -36,5 +38,6 @@ export function BuildSheetFallbackClose(props: SheetFallbackProps) {
   }
   .width('100%')
   .height('100%')
+  .transition(sheetEnterExitTransition())
   .backgroundColor(props.navChromeBg)
 }

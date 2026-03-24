@@ -1,4 +1,5 @@
 import type { FolderTreeNode } from '../model/IndexTypes';
+import { sheetEnterExitTransition } from '../utils';
 
 export interface FolderRenameSheetProps {
   navChromeBg: ResourceColor;
@@ -113,6 +114,7 @@ export function BuildFolderRenameSheet(props: FolderRenameSheetProps) {
   }
   .width('100%')
   .height('100%')
+  .transition(sheetEnterExitTransition())
   .backgroundColor(props.navChromeBg)
 }
 
@@ -219,6 +221,7 @@ export function BuildBookmarkEditSheet(props: BookmarkEditSheetProps) {
   }
   .width('100%')
   .height('100%')
+  .transition(sheetEnterExitTransition())
   .backgroundColor(props.navChromeBg)
 }
 
@@ -372,5 +375,6 @@ export function BuildMoveBookmarkSheet(props: MoveBookmarkSheetProps) {
   }
   .width('100%')
   .height('100%')
+  .transition(sheetEnterExitTransition())
   .backgroundColor(props.navChromeBg)
 }

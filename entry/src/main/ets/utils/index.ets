@@ -47,3 +47,10 @@ export {
 // ── 背景图（含 GIF）────────────────────────────────────────────────────────
 export { inferBackgroundFileSuffix, isBackgroundGifPath } from './BackgroundImageUtils';
 
+// ── 动画工具（TransitionEffect 封装）────────────────────────────────────────
+export {
+  listScaleOpacityAppearTransition,
+  iconScaleRotateAppearTransition,
+  sheetEnterExitTransition
+} from './AnimationUtils';
+

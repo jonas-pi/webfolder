@@ -1,3 +1,5 @@
+import { sheetEnterExitTransition } from '../utils';
+
 export interface BackgroundSettingsSheetProps {
   navChromeBg: ResourceColor;
   contentPrimary: Resource;
@@ -234,4 +236,5 @@ export function BuildBackgroundSettingsSheet(props: BackgroundSettingsSheetProps
   }
   .width('100%')
   .height('100%')
+  .transition(sheetEnterExitTransition())
 }

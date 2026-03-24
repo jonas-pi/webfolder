@@ -1,8 +1,9 @@
 import { common, Want } from '@kit.AbilityKit';
 import vibrator from '@ohos.vibrator';
-import { TITLE_CONTENT_GAP_VP, TOAST_DURATION_SHORT_MS } from '../constants/AppLayout';
+import { TOAST_DURATION_SHORT_MS } from '../constants/AppLayout';
 import { SEARCH_ENGINES } from '../constants/SearchEngines';
 import type { SearchEngineItem } from '../model/IndexTypes';
+import { listScaleOpacityAppearTransition } from '../utils';
 
 /** 左侧引擎图标热区：圆角与高度一半一致，按压时为椭圆高亮而非矩形水波纹 */
 const SEARCH_ENGINE_ICON_TOUCH_W: number = 44;
@@ -22,6 +23,8 @@ export struct SearchPageComp {
 
   @State private leftIconPressed: boolean = false;
   @State private rightSearchPressed: boolean = false;
+  /** 每次打开引擎下拉时递增，用于强制重建列表节点，确保入场动画每次都触发 */
+  @State private pickerAnimEpoch: number = 0;
 
   private lightHaptic(): void {
     vibrator.startVibration({ type: 'time', duration: 8 }, { id: 0, usage: 'touch' })
@@ -59,6 +62,17 @@ export struct SearchPageComp {
     }
   }
 
+  /** 与 Stack.alignContent 对应：在 Scroll 内用 Column 垂直对齐搜索块 */
+  private searchBlockVerticalJustify(): FlexAlign {
+    if (this.searchBoxAlignment === Alignment.Center) {
+      return FlexAlign.Center;
+    }
+    if (this.searchBoxAlignment === Alignment.BottomStart) {
+      return FlexAlign.End;
+    }
+    return FlexAlign.Start;
+  }
+
   private performWebSearch(): void {
     const raw: string = this.searchQuery.trim();
     if (raw.length === 0) {
@@ -74,7 +88,7 @@ export struct SearchPageComp {
   }
 
   build() {
-    Stack({ alignContent: this.searchBoxAlignment }) {
+    Stack({ alignContent: Alignment.TopStart }) {
       // 透明全屏层：仅用于「点空白处关闭」，不用半透明灰底，避免壁纸/背景被压成一块灰色
       if (this.enginePickerOpen) {
         Column()
@@ -87,7 +101,10 @@ export struct SearchPageComp {
           })
       }
 
-      Column({ space: 0 }) {
+      // 与「我的」页一致：Scroll + Spring；垂直位置由原 searchBoxAlignment 映射到内层 Column.justifyContent
+      Scroll() {
+        Column() {
+          Column({ space: 0 }) {
         Row() {
           Row() {
             Image(this.currentEngineIcon())
@@ -114,7 +131,12 @@ export struct SearchPageComp {
           })
           .onClick((): void => {
             this.lightHaptic();
-            this.enginePickerOpen = !this.enginePickerOpen;
+            if (!this.enginePickerOpen) {
+              this.pickerAnimEpoch = this.pickerAnimEpoch + 1;
+              this.enginePickerOpen = true;
+            } else {
+              this.enginePickerOpen = false;
+            }
           })
 
           TextInput({ placeholder: this.searchPlaceholderText(), text: this.searchQuery })
@@ -210,11 +232,14 @@ export struct SearchPageComp {
                     }
                   }
                   .width('100%')
-                }, (item: SearchEngineItem, idx: number) => `se_pick_${idx}_${item.name}`)
+                  // 引擎列表逐个错峰入场：淡入 + 缩放（spring）
+                  .transition(listScaleOpacityAppearTransition(idx))
+                }, (item: SearchEngineItem, idx: number) => `se_pick_${this.pickerAnimEpoch}_${idx}_${item.name}`)
               }
               .width('100%')
             }
             .scrollBar(BarState.Off)
+            .edgeEffect(EdgeEffect.Spring)
             .constraintSize({ maxHeight: 320 })
             .width('100%')
           }
@@ -230,11 +255,22 @@ export struct SearchPageComp {
       }
       .width('100%')
       .padding({ left: 16, right: 16 })
-      .zIndex(1)
+      }
+      .width('100%')
+      .constraintSize({ minHeight: '100%' })
+      .justifyContent(this.searchBlockVerticalJustify())
     }
     .width('100%')
     .height('100%')
-    .padding({ top: TITLE_CONTENT_GAP_VP, bottom: this.bottomNavBarHeight + 32 })
+    .align(Alignment.Top)
+    .scrollBar(BarState.Off)
+    .edgeEffect(EdgeEffect.Spring)
+    .zIndex(1)
+    }
+    // 顶栏在 Index 的 TabContent 内单独渲染，此处仅保留底部与输入区留白
+    .width('100%')
+    .height('100%')
+    .padding({ top: 0, bottom: this.bottomNavBarHeight + 32 })
     .transition(
       TransitionEffect.translate({ x: -24 })
         .animation({ duration: 200, curve: Curve.FastOutSlowIn })

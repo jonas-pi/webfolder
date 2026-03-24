@@ -2,7 +2,7 @@ import type {
   BookmarkGroup, BookmarkItem, BookmarkNavForest, BookmarkNavNode, SwipeTxEntry
 } from '../../model/IndexTypes';
 import {
-  TITLE_CONTENT_GAP_VP, BOOKMARK_LIST_TOP_PADDING_VP, BOOKMARK_LIST_SCROLL_EDGE_BOTTOM_VP,
+  TITLE_CONTENT_GAP_VP, BOOKMARK_LIST_SCROLL_EDGE_BOTTOM_VP,
   BOOKMARK_LIST_DRAG_EDGE_BLEED_VP, OPTION_ROW_PAD_H_VP
 } from '../../constants/AppLayout';
 import { buildBookmarkNavForest } from '../../utils';
@@ -398,6 +398,12 @@ export struct BookmarkPageComp {
         }
         .width('100%')
         .backgroundColor($r('app.color.card_background'))
+        // 每次展开都重新挂载该块，配合 transition 实现“下拉展开”动画
+        .transition(
+          TransitionEffect.OPACITY
+            .combine(TransitionEffect.translate({ y: -8 }))
+            .animation({ duration: 220, curve: Curve.EaseOut })
+        )
         .borderRadius({
           topLeft: 0, topRight: 0,
           bottomLeft: this.optionCardRadius,
@@ -475,6 +481,11 @@ export struct BookmarkPageComp {
         }
         .width('100%')
         .backgroundColor($r('app.color.card_background'))
+        .transition(
+          TransitionEffect.OPACITY
+            .combine(TransitionEffect.translate({ y: -8 }))
+            .animation({ duration: 220, curve: Curve.EaseOut })
+        )
         .borderRadius({
           topLeft: 0, topRight: 0,
           bottomLeft: this.optionCardRadius,
@@ -548,46 +559,58 @@ export struct BookmarkPageComp {
         })
     }
     .width('100%')
-    .layoutWeight(1)
+    .height('100%')
+    // 顶栏已移入 Tab 内容区，不再用负 margin 与外层「标题+Swiper」对齐；由 BookmarkTabComp 的 Column.space 控制与标题间距
     .margin({
-      top: -TITLE_CONTENT_GAP_VP,
+      top: 0,
       left: -BOOKMARK_LIST_DRAG_EDGE_BLEED_VP,
       right: -BOOKMARK_LIST_DRAG_EDGE_BLEED_VP,
       bottom: -BOOKMARK_LIST_SCROLL_EDGE_BOTTOM_VP
     })
     .padding({
-      top: BOOKMARK_LIST_TOP_PADDING_VP,
+      top: TITLE_CONTENT_GAP_VP,
       left: OPTION_ROW_PAD_H_VP + BOOKMARK_LIST_DRAG_EDGE_BLEED_VP,
       right: OPTION_ROW_PAD_H_VP + BOOKMARK_LIST_DRAG_EDGE_BLEED_VP,
       bottom: BOOKMARK_LIST_SCROLL_EDGE_BOTTOM_VP
     })
     .clip(false)
+    // 列表主滚动在 List 上，Spring 需加在 List；外层 Scroll 同步设 Spring 以贴近「我的」页手感
+    .edgeEffect(EdgeEffect.Spring)
+    .scrollBar(BarState.Off)
     .id(`bm_list_${this.bookmarkSwipeRestoreKey}`)
   }
 
   build() {
     Column() {
-      if (this.bookmarkGroups.length === 0) {
+      // 与「我的」页 BuildSettingsPage 一致：Scroll + edgeEffect(Spring)
+      Scroll() {
         Column() {
-          Image($r('app.media.ic_bookmark'))
-            .width(72)
-            .height(72)
-            .fillColor($r('sys.color.ohos_id_color_text_secondary'))
-            .opacity(0.35)
+          if (this.bookmarkGroups.length === 0) {
+            Column() {
+              Image($r('app.media.ic_bookmark'))
+                .width(72)
+                .height(72)
+                .fillColor($r('sys.color.ohos_id_color_text_secondary'))
+                .opacity(0.35)
+            }
+            .width('100%')
+            .constraintSize({ minHeight: '100%' })
+            .justifyContent(FlexAlign.Center)
+            .padding({ left: 32, right: 32, top: TITLE_CONTENT_GAP_VP })
+            .onAppear(() => {
+              this.onEmptyAppear();
+            })
+          } else {
+            this.BookmarkListWithForest(buildBookmarkNavForest(this.bookmarkGroups))
+          }
         }
         .width('100%')
-        .layoutWeight(1)
-        .justifyContent(FlexAlign.Center)
-        // 与有列表时顶栏下间距一致，避免空状态整体上移
-        .padding({ left: 32, right: 32, top: TITLE_CONTENT_GAP_VP })
-        .onAppear(() => { this.onEmptyAppear(); })
-      } else {
-        Column() {
-          this.BookmarkListWithForest(buildBookmarkNavForest(this.bookmarkGroups))
-        }
-        .width('100%')
-        .layoutWeight(1)
       }
+      .width('100%')
+      .layoutWeight(1)
+      .align(Alignment.Top)
+      .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.Spring)
     }
     .width('100%')
     .layoutWeight(1)
