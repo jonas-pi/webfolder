@@ -13,35 +13,19 @@
 
 ## 功能展示
 
-### 收藏夹
+- **收藏夹**：按文件夹整理导入后的书签；右上角菜单 **导入收藏** 可选择 Edge / Chrome 导出的 HTML 文件。  
+- **搜索**：多引擎搜索页；搜索框可 **临时切换** 引擎；**我的 → 搜索设置** 可设默认引擎与搜索框位置（上 / 中 / 下）。  
+- **背景**：**我的 → 设置背景** 支持相册或文件（JPG / PNG / WebP / GIF）、虚化与明暗度，并可恢复默认。
 
-按文件夹整理导入后的书签，便于快速浏览与打开。
+**收藏夹 · 搜索主页**（一行三张）
 
-![收藏夹页面](docs/收藏夹页面展示.jpg)
+| 收藏夹列表 | 导入收藏 | 搜索主页 |
+| :--------: | :------: | :------: |
+| <img src="docs/收藏夹页面展示.jpg" alt="收藏夹页面" width="200" /> | <img src="docs/收藏夹页面导入按钮展示.jpg" alt="收藏夹导入入口" width="200" /> | <img src="docs/搜索页面展示.jpg" alt="搜索页面" width="200" /> |
 
-在收藏夹页通过右上角菜单选择 **导入收藏**，即可选择 Edge / Chrome 导出的 HTML 书签文件。
-
-![收藏夹导入入口](docs/收藏夹页面导入按钮展示.jpg)
-
-### 搜索
-
-内置搜索页，可配合常用搜索引擎使用。
-
-![搜索页面](docs/搜索页面展示.jpg)
-
-在搜索框处可 **临时切换** 当前使用的搜索引擎，无需每次进入设置。
-
-![临时切换搜索引擎](docs/临时切换搜索引擎展示.jpg)
-
-在 **我的 → 搜索设置** 中可设定 **默认搜索引擎**，并调整搜索框在页面中的位置（上 / 中 / 下）。
-
-![搜索设置：默认引擎与搜索框位置](docs/切换默认搜索引擎展示.jpg)
-
-### 背景与个性化
-
-在 **我的 → 设置背景** 中可更换壁纸，并调节虚化与明暗度；支持从相册或文件选择 **JPG / PNG / WebP / GIF**，也可一键恢复默认。
-
-![设置背景](docs/更换背景展示.jpg)
+| 临时切换搜索引擎 | 搜索设置 | 设置背景 |
+| :--------------: | :------: | :------: |
+| <img src="docs/临时切换搜索引擎展示.jpg" alt="临时切换搜索引擎" width="200" /> | <img src="docs/切换默认搜索引擎展示.jpg" alt="搜索设置：默认引擎与搜索框位置" width="200" /> | <img src="docs/更换背景展示.jpg" alt="设置背景" width="200" /> |
 
 ## 在 Edge / Chrome 中导出收藏夹（HTML）
 
@@ -49,6 +33,16 @@
 2. **Chrome**：打开 **书签管理器**（菜单或地址栏输入 `chrome://bookmarks`），通过菜单将书签 **导出为 HTML 文件**。
 
 > 若其他 Chromium 系浏览器同样导出为上述 HTML 格式，一般也可导入使用。
+
+## 安装方式
+
+1. 在 **[Releases](https://github.com/jonas-pi/webfolder/releases)** 下载最新 **`entry-default-unsigned.hap`**（本仓库提供的是**未签名**调试包，便于自行安装体验）。  
+   - 固定直链（始终指向最新一次 Release 中的同名附件）：  
+     [https://github.com/jonas-pi/webfolder/releases/latest/download/entry-default-unsigned.hap](https://github.com/jonas-pi/webfolder/releases/latest/download/entry-default-unsigned.hap)
+
+2. 将 HAP 安装到 **HarmonyOS NEXT** 等设备上，推荐使用 **小白调试助手**（开源 HAP 安装工具，原项目名 Auto-Installer）：  
+   **[https://github.com/likuai2010/auto-installer](https://github.com/likuai2010/auto-installer)**  
+   按该仓库说明在 Windows / macOS / Linux 等环境连接设备后安装即可（具体步骤以工具文档为准）。
 
 ## 开发说明
 
