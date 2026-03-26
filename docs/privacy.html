@@ -5,12 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>隐私政策 — WebBookmarks / 网址收藏夹</title>
   <style>
-    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif; line-height: 1.6; max-width: 42rem; margin: 0 auto; padding: 1.5rem; color: #1a1a1a; }
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif; line-height: 1.6; max-width: 42rem; margin: 0 auto; padding: 1.5rem; color: #1a1a1a; background: #fff; }
     h1 { font-size: 1.5rem; margin-top: 0; }
     h2 { font-size: 1.1rem; margin-top: 1.5rem; }
     p, li { font-size: 0.95rem; }
     .muted { color: #666; font-size: 0.85rem; margin-top: 2rem; }
     a { color: #0969da; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #121212; color: #e6e6e6; }
+      .muted { color: #9aa0a6; }
+      a { color: #58a6ff; }
+    }
   </style>
 </head>
 <body>
@@ -23,32 +28,41 @@
   <ul>
     <li><strong>书签与收藏数据</strong>：您输入或导入的标题、网址、文件夹结构等，仅保存在本应用在您设备上的私有目录中。</li>
     <li><strong>应用设置</strong>：如默认搜索引擎、搜索框位置、界面相关偏好等，以本地文件形式存储在设备上。</li>
+    <li><strong>隐私同意状态</strong>：您是否已同意本政策，以设备本地首选项（Preferences）形式记录，用于首次启动及「我的」中的隐私确认流程；该记录<strong>不会上传至开发者服务器</strong>。</li>
     <li><strong>可选的壁纸与图标缓存</strong>：若您选择背景图片或展示网站图标，相关文件或缓存可能保存在设备本地；网站图标可能通过公开网络请求获取对应站点资源。</li>
   </ul>
 
-  <h2>2. 权限说明</h2>
+  <h2>2. 首次使用同意、设置内查阅与撤回</h2>
   <ul>
-    <li><strong>网络访问（INTERNET）</strong>：用于在浏览器中打开您选中的书签链接、以及按需获取网站图标等网络资源；不会在您未操作时无故上传您的书签内容。</li>
+    <li><strong>首次打开</strong>：您需通过应用内弹窗阅读摘要，并可点击《隐私政策》在系统浏览器中打开本页面查看全文。只有选择「同意」后，方可使用本应用主要功能；选择「不同意」或等效取消操作时，应用将退出，且不会在本地写入「已同意」标记。</li>
+    <li><strong>「我的」—「隐私政策」</strong>：您可随时再次打开同一形式的确认对话框，阅读摘要、在浏览器中查看本页全文，并再次选择「同意」或「不同意」。若选择<strong>「不同意」</strong>，应用将<strong>清除设备上已保存的同意记录</strong>，使您在下一次启动时<strong>再次经历首次同意流程</strong>，且本应用会<strong>立即退出</strong>。若您仅通过系统返回键等方式关闭该对话框而未点选「不同意」，则<strong>不视为撤回同意</strong>，已保存的同意状态保持不变。</li>
+    <li><strong>自愿继续使用</strong>：在设置内选择「同意」表示您确认继续接受本政策，通常无需重复写入数据（您此前已同意时状态保持不变）。</li>
+  </ul>
+
+  <h2>3. 权限说明</h2>
+  <ul>
+    <li><strong>网络访问（INTERNET）</strong>：用于在浏览器中打开您选中的书签链接、按需获取网站图标、在确认流程中打开本隐私政策网页，以及在您主动配置并操作时与 <strong>GitHub</strong> 等第三方服务通信（例如可选的 Gist 同步）；不会在您未操作相关功能时由本应用向开发者服务器上传您的书签内容。</li>
     <li><strong>振动（VIBRATE）</strong>：用于在点击、切换等操作时提供轻微触感反馈，不涉及个人数据。</li>
   </ul>
 
-  <h2>3. 数据存储与安全</h2>
-  <p>书签与设置默认保存在<strong>本机应用沙箱</strong>内，由系统隔离保护。除您主动使用「导入」等由您选择的文件操作外，应用不会将您的书签列表自动上传到开发者服务器（本应用未要求您提供此类服务器账号）。</p>
+  <h2>4. 数据存储与安全</h2>
+  <p>书签与设置默认保存在<strong>本机应用沙箱</strong>内，由系统隔离保护。除您主动使用「导入」等由您选择的文件操作外，应用不会将您的书签列表自动上传到<strong>由开发者运营的服务器</strong>（本应用未要求您向开发者提供此类账号）。</p>
+  <p>若您使用<strong>云端同步（GitHub Gist）</strong>功能，由您在应用内自行填写 Token、Gist 等信息，书签数据由您的设备与 <strong>GitHub</strong> 之间直接传输，适用 GitHub 的条款与隐私政策；请您妥善保管访问令牌，勿与他人分享。</p>
 
-  <h2>4. 第三方服务与链接</h2>
-  <p>本应用会按您的操作打开您选择的<strong>第三方网站</strong>。这些网站有其各自的隐私政策，本应用无法控制，请您在访问时留意。</p>
+  <h2>5. 第三方服务与链接</h2>
+  <p>本应用会按您的操作打开您选择的<strong>第三方网站</strong>，或在您确认后打开本政策托管页面（例如 GitHub Pages）。这些网站有其各自的隐私政策，本应用无法控制，请您在访问时留意。</p>
 
-  <h2>5. 未成年人</h2>
+  <h2>6. 未成年人</h2>
   <p>若您为未成年人，请在监护人指导下使用本应用。</p>
 
-  <h2>6. 政策更新</h2>
-  <p>我们可能随应用版本更新修订本政策。更新后的版本将在本页面或通过应用内适当方式提示，请定期查阅。</p>
+  <h2>7. 政策更新</h2>
+  <p>我们可能随应用版本更新修订本政策。更新后的版本将在本页面或通过应用内适当方式提示，请定期查阅。若修订涉及处理方式的重大变化，我们将通过合理方式提醒您，必要时可能要求您重新确认同意。</p>
 
-  <h2>7. 联系我们</h2>
+  <h2>8. 联系我们</h2>
   <p>若您对本政策有疑问，可通过以下邮箱联系开发者：</p>
   <p><a href="mailto:pichaomeng@gmail.com">pichaomeng@gmail.com</a></p>
   <p>您也可通过应用商店或项目公开页面进行反馈。</p>
 
-  <p class="muted">最后更新日期：2026 年 3 月 22 日</p>
+  <p class="muted">最后更新日期：2026 年 3 月 26 日</p>
 </body>
 </html>

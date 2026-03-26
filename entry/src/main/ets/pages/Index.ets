@@ -1,4 +1,4 @@
-import { common } from '@kit.AbilityKit';
+import { common, Want } from '@kit.AbilityKit';
 // BarMode / BarPosition / TabsController 由 ArkUI 声明式框架注入为全局符号，勿从 @kit.ArkUI 导入（与 SDK 6.x Kit 导出表一致）
 import { curves, window } from '@kit.ArkUI';
 import vibrator from '@ohos.vibrator';
@@ -12,6 +12,12 @@ import { BookmarkTabComp } from '../components/BookmarkTabComp';
 import { SettingsTabComp } from '../components/SettingsTabComp';
 import { SearchPageComp } from '../components/SearchPage';
 import { MainTabTitleBar } from '../components/chrome/MainTabTitleBar';
+import { PrivacyConsentDialog } from '../components/PrivacyConsentDialog';
+import {
+  hasAcceptedPrivacyPolicy,
+  setPrivacyPolicyAccepted,
+  PRIVACY_POLICY_PAGE_URL
+} from '../services';
 
 /**
  * 应用根入口：壁纸 + 主框架。
@@ -49,6 +55,10 @@ struct Index {
   @Provide('openNewBookmarkReq') openNewBookmarkReq: number = 0;
   @Provide('importBookmarksReq') importBookmarksReq: number = 0;
   @Provide('backPressCloseReq') backPressCloseReq: number = 0;
+  /** 递增后收藏夹 Tab 从磁盘重新加载书签（Gist 拉取完成等） */
+  @Provide('bookmarkDataReloadReq') bookmarkDataReloadReq: number = 0;
+  /** 从其它 Tab 切回「收藏夹」时递增，触发自动拉取（若已开启） */
+  @Provide('bookmarkGistAutoPullReq') bookmarkGistAutoPullReq: number = 0;
 
   // ── 搜索页局部状态（仅 SearchPage 使用，无需下放） ───────────────────────
   @State private searchQuery: string = '';
@@ -59,6 +69,31 @@ struct Index {
   /** 用于注销窗口事件，避免重复订阅 */
   private mainWindowRef: window.Window | null = null;
   private windowSizeChangeHandler: (() => void) | null = null;
+
+  // ── 首次启动隐私确认（未同意前禁止实质使用，返回键等同不同意） ───────────
+  @State private privacyGateResolved: boolean = false;
+  @State private privacyConsented: boolean = false;
+  /** autoCancel: false + cancel 回调，避免绕过确认；样式随 sys.color 深浅色自适应 */
+  private privacyDialogController: CustomDialogController = new CustomDialogController({
+    builder: PrivacyConsentDialog({
+      settingsReconfirm: false,
+      onAgree: (): void => {
+        void this.handlePrivacyAgree();
+      },
+      onDisagree: (): void => {
+        this.handlePrivacyDisagree();
+      },
+      onOpenPrivacy: (): void => {
+        void this.openPrivacyPolicyPage();
+      }
+    }),
+    autoCancel: false,
+    alignment: DialogAlignment.Center,
+    customStyle: true,
+    cancel: (): void => {
+      this.handlePrivacyDisagree();
+    }
+  });
 
   // ── 工具方法 ───────────────────────────────────────────────────────────────
   private lightHaptic(): void {
@@ -144,6 +179,53 @@ struct Index {
       .width('100%');
   }
 
+  /** 异步读取是否已同意隐私；未完成前 UI 仅显示加载占位，避免未授权可操作主界面 */
+  private async resolvePrivacyGate(): Promise<void> {
+    try {
+      const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      const ok: boolean = await hasAcceptedPrivacyPolicy(ctx);
+      this.privacyConsented = ok;
+      this.privacyGateResolved = true;
+      if (!ok) {
+        this.privacyDialogController.open();
+      }
+    } catch (_e) {
+      this.privacyConsented = false;
+      this.privacyGateResolved = true;
+      this.privacyDialogController.open();
+    }
+  }
+
+  private async handlePrivacyAgree(): Promise<void> {
+    try {
+      const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      await setPrivacyPolicyAccepted(ctx, true);
+      this.privacyConsented = true;
+    } catch (_e) {
+      // 写入失败时不视为已同意，用户可重试「同意」
+    }
+  }
+
+  private handlePrivacyDisagree(): void {
+    try {
+      const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      ctx.terminateSelf();
+    } catch (_e) {
+    }
+  }
+
+  private async openPrivacyPolicyPage(): Promise<void> {
+    try {
+      const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      await ctx.startAbility({
+        deviceId: '',
+        action: 'ohos.want.action.viewData',
+        uri: PRIVACY_POLICY_PAGE_URL
+      } as Want);
+    } catch (_e) {
+    }
+  }
+
   // ── 生命周期 ───────────────────────────────────────────────────────────────
   aboutToAppear(): void {
     this.searchSessionEngineIndex = this.searchEngineIndex;
@@ -163,6 +245,7 @@ struct Index {
         win.on('windowSizeChange', handler);
       }).catch((): void => {});
     } catch (_e) {}
+    void this.resolvePrivacyGate();
   }
 
   aboutToDisappear(): void {
@@ -176,6 +259,10 @@ struct Index {
   }
 
   onBackPress(): boolean {
+    if (this.privacyGateResolved && !this.privacyConsented) {
+      this.handlePrivacyDisagree();
+      return true;
+    }
     if (this.searchEnginePickerOpen) {
       this.searchEnginePickerOpen = false;
       return true;
@@ -189,8 +276,21 @@ struct Index {
 
   // ── build ─────────────────────────────────────────────────────────────────
   build() {
-    Column() {
-      Stack({ alignContent: Alignment.TopStart }) {
+    Stack() {
+      if (!this.privacyGateResolved) {
+        Column() {
+          LoadingProgress()
+            .width(48)
+            .height(48)
+            .color($r('sys.color.ohos_id_color_emphasize'))
+        }
+        .width('100%')
+        .height('100%')
+        .justifyContent(FlexAlign.Center)
+        .backgroundColor($r('sys.color.comp_background_primary'))
+      } else {
+        Column() {
+          Stack({ alignContent: Alignment.TopStart }) {
         if (this.backgroundImagePath.length > 0) {
           Image(this.backgroundImagePath)
             .width('100%')
@@ -264,6 +364,9 @@ struct Index {
             if (index === 2 && prevTab !== 2) {
               this.settingsTabAnimEpoch = this.settingsTabAnimEpoch + 1;
             }
+            if (index === 0 && prevTab !== 0) {
+              this.bookmarkGistAutoPullReq = this.bookmarkGistAutoPullReq + 1;
+            }
             this.currentTab = index;
           })
         }
@@ -274,6 +377,10 @@ struct Index {
       }
       .layoutWeight(1)
       .width('100%')
+    }
+    .height('100%')
+    .width('100%')
+      }
     }
     .height('100%')
     .width('100%')

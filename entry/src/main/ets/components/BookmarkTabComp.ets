@@ -34,8 +34,12 @@ import {
   faviconSourceForUrl, isFaviconFailedForUrl, markFaviconFailedForUrl,
   prefetchFavicons as prefetchFaviconsByService,
   loadBookmarks, loadFaviconCache, saveBookmarks, saveFaviconCache,
-  readBookmarkFileText as fsReadBookmarkFileText
+  readBookmarkFileText as fsReadBookmarkFileText,
+  runGistAutoUploadFromDisk, tryGistAutoPullFromDisk, GIST_AUTO_UPLOAD_DEBOUNCE_MS,
+  loadGistSyncSettings, defaultGistSyncSettings, loadBookmarkSyncData, saveBookmarkSyncData,
+  githubPatchGistFiles, githubFetchGistRaw, extractGistFileText, isBookmarkGistDirty
 } from '../services';
+import { flatItemsToSyncData, bookmarkPayloadFromParsedJson } from '../utils/BookmarkHubSyncConverter';
 import {
   BuildNewBookmarkSheet, BuildFolderRenameSheet, BuildBookmarkEditSheet,
   BuildMoveBookmarkSheet, BuildSheetFallbackClose, resolveSheetRoute,
@@ -52,6 +56,10 @@ export struct BookmarkTabComp {
   @Watch('onNewBookmarkReqChanged') @Consume('openNewBookmarkReq') openNewBookmarkReq: number = 0;
   @Watch('onImportBookmarksReqChanged') @Consume('importBookmarksReq') importBookmarksReq: number = 0;
   @Watch('onBackPressCloseChanged') @Consume('backPressCloseReq') backPressCloseReq: number = 0;
+  /** 设置页从 Gist 拉取后递增，此处 Watch 触发从磁盘刷新列表（不弹「已恢复」Toast） */
+  @Watch('onBookmarkDataReloadReqChanged') @Consume('bookmarkDataReloadReq') bookmarkDataReloadReq: number = 0;
+  /** 从其它 Tab 回到收藏夹时递增，尝试按配置自动从 Gist 拉取 */
+  @Watch('onBookmarkGistAutoPullReqChanged') @Consume('bookmarkGistAutoPullReq') bookmarkGistAutoPullReq: number = 0;
   @Consume('anySheetOpen') anySheetOpen: boolean;
 
   // 书签列表状态
@@ -100,11 +108,80 @@ export struct BookmarkTabComp {
   private sheetModeResetTimer: number = -1;
   /** 顶栏「+」菜单打开时的旋转角（与 Index 原 MainHeader 行为一致） */
   @State private plusRotation: number = 0;
+  /** 手动同步：上传中旋转角（定时递增，配合 .animation 平滑） */
+  @State private manualSyncIconAngle: number = 0;
+  /** 手动同步进行中，禁用重复点击 */
+  @State private manualGistSyncBusy: boolean = false;
+  /** Gist 自动上传防抖定时器 id（clearTimeout 用） */
+  private gistAutoUploadTimerId: number = -1;
+  /** 手动同步图标旋转定时器 */
+  private manualSyncSpinTimerId: number = -1;
 
   // ── @Watch 响应入口触发 ───────────────────────────────────────────────────
   private onNewBookmarkReqChanged(): void { this.openNewBookmarkSheet(); }
   private onImportBookmarksReqChanged(): void { this.importBookmarks(); }
   private onBackPressCloseChanged(): void { if (this.sheetVisible) { this.closeModalSheet(); } }
+  private onBookmarkDataReloadReqChanged(): void {
+    if (this.bookmarkDataReloadReq <= 0) {
+      return;
+    }
+    this.loadBookmarksFromLocal(false)
+      .then((): void => {
+        this.prefetchFavicons(collectAllBookmarksFromGroups(this.bookmarkGroups)).catch((_e: Object) => {});
+      })
+      .catch((_err: Object) => {
+        this.showCapsuleToast('书签刷新失败', true);
+      });
+  }
+
+  private onBookmarkGistAutoPullReqChanged(): void {
+    if (this.bookmarkGistAutoPullReq <= 0) {
+      return;
+    }
+    this.tryRunGistAutoPullFromCloud(false).catch((_e: Object) => {});
+  }
+
+  /** 应用 filesDir，供 Gist 自动同步读写路径 */
+  private appFilesDir(): string {
+    const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
+    return ctx.filesDir;
+  }
+
+  private cancelGistAutoUploadDebounce(): void {
+    if (this.gistAutoUploadTimerId !== -1) {
+      clearTimeout(this.gistAutoUploadTimerId);
+      this.gistAutoUploadTimerId = -1;
+    }
+  }
+
+  /**
+   * 本地书签已写盘后调度防抖上传（由「云端同步」里开关控制，未开启则 runGistAutoUploadFromDisk 内立即返回）。
+   */
+  private scheduleGistAutoUploadAfterLocalSave(): void {
+    this.cancelGistAutoUploadDebounce();
+    const dir: string = this.appFilesDir();
+    this.gistAutoUploadTimerId = setTimeout((): void => {
+      this.gistAutoUploadTimerId = -1;
+      runGistAutoUploadFromDisk(dir).catch((_e: Object) => {});
+    }, GIST_AUTO_UPLOAD_DEBOUNCE_MS);
+  }
+
+  /**
+   * @param fromColdStart 冷启动延迟路径不弹 Toast，避免与「已恢复」叠在一起
+   */
+  private async tryRunGistAutoPullFromCloud(fromColdStart: boolean): Promise<void> {
+    try {
+      const applied: boolean = await tryGistAutoPullFromDisk(this.appFilesDir());
+      if (applied) {
+        this.bookmarkDataReloadReq = this.bookmarkDataReloadReq + 1;
+        if (!fromColdStart) {
+          this.showCapsuleToast('已从云端更新书签');
+        }
+      }
+    } catch (_e) {
+      // 网络失败等静默，避免打扰；用户可手动拉取
+    }
+  }
 
   // ── Toast / 震动 ──────────────────────────────────────────────────────────
   private showCapsuleToast(msg: string, longDuration: boolean = false): void {
@@ -143,6 +220,112 @@ export struct BookmarkTabComp {
   private bookmarkCachePath(): string {
     const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
     return `${ctx.filesDir}/bookmarks_cache.json`;
+  }
+
+  private gistSettingsCachePath(): string {
+    const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
+    return `${ctx.filesDir}/gist_sync_settings.json`;
+  }
+
+  /** 开始旋转「同步」官方符号（上传过程中保持转动） */
+  private startManualGistSyncSpin(): void {
+    if (this.manualSyncSpinTimerId !== -1) {
+      clearInterval(this.manualSyncSpinTimerId);
+      this.manualSyncSpinTimerId = -1;
+    }
+    this.manualGistSyncBusy = true;
+    this.manualSyncIconAngle = 0;
+    this.manualSyncSpinTimerId = setInterval((): void => {
+      this.manualSyncIconAngle = (this.manualSyncIconAngle + 24) % 360;
+    }, 42);
+  }
+
+  /** 停止旋转并恢复可点击 */
+  private stopManualGistSyncSpin(): void {
+    if (this.manualSyncSpinTimerId !== -1) {
+      clearInterval(this.manualSyncSpinTimerId);
+      this.manualSyncSpinTimerId = -1;
+    }
+    this.manualGistSyncBusy = false;
+    this.manualSyncIconAngle = 0;
+  }
+
+  /**
+   * 顶栏手动同步：先拉取 Gist 与本地 SyncDataInfo.createDate 比对。
+   * - 本地有未推送编辑（dirty）：优先上传，避免被旧时间戳误判。
+   * - 否则远端较新 → 拉取覆盖；本地较新 → 上传；时间戳相同 → 提示无需操作。
+   */
+  private async onManualGistBidirectionalSync(): Promise<void> {
+    if (this.manualGistSyncBusy) {
+      return;
+    }
+    this.lightHaptic();
+    const filesDir: string = this.appFilesDir();
+    const s = await loadGistSyncSettings(this.gistSettingsCachePath());
+    const token: string = s.githubToken.trim();
+    const gid: string = s.gistId.trim();
+    const fn: string = s.gistFileName.trim().length > 0 ? s.gistFileName.trim() :
+      defaultGistSyncSettings().gistFileName;
+    if (token.length === 0 || gid.length === 0 || fn.length === 0) {
+      this.showCapsuleToast('请先在「我的 → 云端同步」填写 Token、Gist ID 与文件名');
+      return;
+    }
+    this.cancelGistAutoUploadDebounce();
+    this.showCapsuleToast('正在与云端比对并同步…');
+    this.startManualGistSyncSpin();
+    const bmPath: string = this.bookmarkCachePath();
+    try {
+      const dirty: boolean = isBookmarkGistDirty(filesDir);
+      let localSync = await loadBookmarkSyncData(bmPath);
+      const localTs: number =
+        localSync !== null && localSync.createDate > 0 ? localSync.createDate : 0;
+
+      const gistJson: string = await githubFetchGistRaw(token, gid);
+      const fileText: string = await extractGistFileText(token, gistJson, fn);
+      const remoteSync = bookmarkPayloadFromParsedJson(JSON.parse(fileText) as object);
+      if (remoteSync === null) {
+        this.showCapsuleToast('云端书签文件格式无效', true);
+        return;
+      }
+      const remoteTs: number = remoteSync.createDate > 0 ? remoteSync.createDate : 0;
+
+      /** 本地自上次成功同步后又有改动：以本机为准直接上传，避免被「仅时间戳较旧」误伤 */
+      if (dirty) {
+        if (localSync === null) {
+          localSync = flatItemsToSyncData([]);
+        }
+        localSync.createDate = Date.now();
+        localSync.browser = 'HarmonyOS/HM';
+        await githubPatchGistFiles(token, gid, fn, JSON.stringify(localSync));
+        saveBookmarkSyncData(bmPath, localSync);
+        this.showCapsuleToast('本地有未推送修改，已上传到云端');
+        return;
+      }
+
+      if (remoteTs > localTs) {
+        saveBookmarkSyncData(bmPath, remoteSync);
+        this.bookmarkDataReloadReq = this.bookmarkDataReloadReq + 1;
+        this.showCapsuleToast('云端较新，已从 Gist 拉取');
+        return;
+      }
+      if (localTs > remoteTs) {
+        if (localSync === null) {
+          localSync = flatItemsToSyncData([]);
+        }
+        localSync.createDate = Date.now();
+        localSync.browser = 'HarmonyOS/HM';
+        await githubPatchGistFiles(token, gid, fn, JSON.stringify(localSync));
+        saveBookmarkSyncData(bmPath, localSync);
+        this.showCapsuleToast('本地较新，已上传到云端');
+        return;
+      }
+
+      this.showCapsuleToast('本地与云端版本一致');
+    } catch (e) {
+      this.showCapsuleToast(`同步失败：${JSON.stringify(e)}`, true);
+    } finally {
+      this.stopManualGistSyncSpin();
+    }
   }
 
   private faviconCachePath(): string {
@@ -282,16 +465,22 @@ export struct BookmarkTabComp {
   // ── 书签持久化 ─────────────────────────────────────────────────────────────
   private async saveBookmarksToLocal(items: Array<BookmarkItem>): Promise<void> {
     saveBookmarks(this.bookmarkCachePath(), items);
+    this.scheduleGistAutoUploadAfterLocalSave();
   }
 
-  private async loadBookmarksFromLocal(): Promise<void> {
+  /**
+   * @param showRestoreToast true：启动恢复时提示条数；false：Gist 等静默刷新后由调用方已 Toast
+   */
+  private async loadBookmarksFromLocal(showRestoreToast: boolean = true): Promise<void> {
     const restored = await loadBookmarks(this.bookmarkCachePath());
     if (restored === null) { return; }
     // 本地 JSON 数组顺序即导入/HTML 顺序，用默认分组即可
     this.expandedFolders = [];
     this.commitBookmarkGroups(groupBookmarks(restored));
     this.bookmarkSwipeRestoreKey = this.bookmarkSwipeRestoreKey + 1;
-    this.showCapsuleToast(`已恢复 ${restored.length} 条书签`);
+    if (showRestoreToast) {
+      this.showCapsuleToast(`已恢复 ${restored.length} 条书签`);
+    }
   }
 
   private async loadFaviconCacheFromLocal(): Promise<void> {
@@ -853,12 +1042,21 @@ export struct BookmarkTabComp {
 
   // ── 生命周期 ───────────────────────────────────────────────────────────────
   aboutToAppear(): void {
-    this.loadBookmarksFromLocal().catch((_err: Object) => {
+    this.loadBookmarksFromLocal(true).catch((_err: Object) => {
       this.showCapsuleToast('书签恢复失败，请重新导入', true);
     });
     this.loadFaviconCacheFromLocal().then(() => {
       this.prefetchFavicons(collectAllBookmarksFromGroups(this.bookmarkGroups)).catch((_err: Object) => {});
     }).catch((_err: Object) => {});
+    // 冷启动若在收藏夹 Tab：延迟一次自动拉取（与切换到本 Tab 的 Watch 互补）
+    setTimeout((): void => {
+      this.tryRunGistAutoPullFromCloud(true).catch((_e: Object) => {});
+    }, 900);
+  }
+
+  aboutToDisappear(): void {
+    this.cancelGistAutoUploadDebounce();
+    this.stopManualGistSyncSpin();
   }
 
   // ── build ─────────────────────────────────────────────────────────────────
@@ -866,23 +1064,47 @@ export struct BookmarkTabComp {
     Column() {
       // 标题属于本 Tab 内容区；尾部必须用「子组件块」绑定 @BuilderParam trailing（传 trailing: this.xxx 在真机上易为 undefined → trailing() 崩溃）
       MainTabTitleBar({ title: '收藏夹' }) {
-        SymbolGlyph($r('sys.symbol.plus'))
-          .fontSize(24)
-          .fontColor([$r('sys.color.icon_secondary')])
-          .rotate({ angle: this.plusRotation })
-          .animation({ duration: 280, curve: Curve.FastOutSlowIn })
-          .onTouch((event: TouchEvent) => {
-            if (event.type === TouchType.Down) {
-              this.plusRotation = 135;
-            }
+        Row({ space: 0 }) {
+          // 系统 Symbol：双箭头环形；与加号拉开间距，整体略远离右边缘
+          Button({ type: ButtonType.Circle, stateEffect: true }) {
+            SymbolGlyph($r('sys.symbol.arrow_2_circlepath'))
+              .fontSize(22)
+              .fontColor([$r('sys.color.icon_secondary')])
+              .rotate({ angle: this.manualSyncIconAngle })
+              .animation({ duration: 38, curve: Curve.Linear })
+          }
+          .width(40)
+          .height(40)
+          .margin({ right: 18 })
+          .backgroundColor($r('app.color.back_button_bg'))
+          .enabled(!this.manualGistSyncBusy)
+          .opacity(this.manualGistSyncBusy ? 0.55 : 1)
+          .clickEffect({ level: ClickEffectLevel.LIGHT })
+          .onClick((): void => {
+            this.onManualGistBidirectionalSync().catch((_e: Object) => {});
           })
-          .bindMenu(this.BookmarkAddMenuBuilder, {
-            onDisappear: (): void => {
-              animateTo({ duration: 0 }, () => {
-                this.plusRotation = 0;
-              });
-            }
-          })
+
+          SymbolGlyph($r('sys.symbol.plus'))
+            .fontSize(24)
+            .fontColor([$r('sys.color.icon_secondary')])
+            .rotate({ angle: this.plusRotation })
+            .animation({ duration: 280, curve: Curve.FastOutSlowIn })
+            .onTouch((event: TouchEvent) => {
+              if (event.type === TouchType.Down) {
+                this.plusRotation = 135;
+              }
+            })
+            .bindMenu(this.BookmarkAddMenuBuilder, {
+              onDisappear: (): void => {
+                animateTo({ duration: 0 }, () => {
+                  this.plusRotation = 0;
+                });
+              }
+            })
+        }
+        .justifyContent(FlexAlign.End)
+        // 尾栏整体略离右边缘，同步按钮相对加号更靠左
+        .margin({ right: 10 })
       }
       // 用 ForEach + 数据版本字符串作唯一 key，强制销毁并重建 BookmarkPageComp，
       // 避免仅 @Prop 更新时 List/侧滑子树在 Tabs/Sheet 场景下被复用导致「数据已变界面不变」。
@@ -943,8 +1165,7 @@ export struct BookmarkTabComp {
             },
             onDeleteBookmark: (folder: string, item: BookmarkItem): void => {
               this.promptDeleteBookmarkConfirm(folder, item);
-            },
-            onEmptyAppear: (): void => { this.showCapsuleToast('长按功能图标即可收藏', true); }
+            }
           })
         }, (k: string) => `bookmark_page_${k}`)
       }

@@ -15,6 +15,46 @@
     {
       "name": "permission_vibrate_reason",
       "value": "在点击与切换页面时提供轻微触感反馈"
+    },
+    {
+      "name": "privacy_dialog_title",
+      "value": "隐私政策与服务说明"
+    },
+    {
+      "name": "privacy_dialog_lead",
+      "value": "欢迎使用网址收藏夹。为依法保障您的权益，请先阅读并充分理解"
+    },
+    {
+      "name": "privacy_dialog_link",
+      "value": "《隐私政策》"
+    },
+    {
+      "name": "privacy_dialog_tail",
+      "value": "。您点击「同意」即表示已阅读并同意该政策；若不同意，将无法使用本应用。"
+    },
+    {
+      "name": "privacy_disagree",
+      "value": "不同意"
+    },
+    {
+      "name": "privacy_agree",
+      "value": "同意"
+    },
+    {
+      "name": "privacy_reconfirm_title",
+      "value": "隐私政策确认"
+    },
+    {
+      "name": "privacy_reconfirm_lead",
+      "value": "您可随时在此再次阅读"
+    },
+    {
+      "name": "privacy_reconfirm_tail",
+      "value": "。点击「同意」表示您继续接受本政策；若点击「不同意」，将撤销您此前的同意记录，下次打开应用时将重新提示，且本应用会立即退出。"
+    },
+    {
+      "name": "settings_privacy_policy_subtitle",
+      "value": "查看全文并再次确认或撤销同意"
     }
   ]
 }

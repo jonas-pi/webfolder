@@ -23,14 +23,42 @@ export {
 export {
   saveBookmarks,
   loadBookmarks,
+  loadBookmarkSyncData,
+  saveBookmarkSyncData,
   saveFaviconCache,
   loadFaviconCache,
   saveSettingsCache,
   loadSettingsCache
 } from './BookmarkStorageService';
 
+export {
+  defaultGistSyncSettings,
+  saveGistSyncSettings,
+  loadGistSyncSettings
+} from './GistSettingsStorageService';
+
+export {
+  githubFetchGistRaw,
+  extractGistFileText,
+  githubPatchGistFiles
+} from './GithubGistApi';
+
+export {
+  runGistAutoUploadFromDisk,
+  tryGistAutoPullFromDisk,
+  GIST_AUTO_UPLOAD_DEBOUNCE_MS
+} from './BookmarkGistAutoSyncService';
+
+export { isBookmarkGistDirty } from './BookmarkGistLocalState';
+
 // ── 设置（序列化/反序列化） ──────────────────────────────────────────────
 export { buildSettingsCache, applySettingsCache } from './SettingsService';
+
+export {
+  PRIVACY_POLICY_PAGE_URL,
+  hasAcceptedPrivacyPolicy,
+  setPrivacyPolicyAccepted
+} from './PrivacyConsentService';
 
 // ── 本地文件系统工具 ─────────────────────────────────────────────────────
 export {

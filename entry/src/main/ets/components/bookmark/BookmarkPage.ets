@@ -82,7 +82,6 @@ export struct BookmarkPageComp {
     (_f: string, _item: BookmarkItem): void => {};
   onDeleteBookmark: (folder: string, item: BookmarkItem) => void =
     (_f: string, _item: BookmarkItem): void => {};
-  onEmptyAppear: () => void = (): void => {};
 
   private buildRootSlotList(forest: BookmarkNavForest): Array<BookmarkRootSlot> {
     const out: Array<BookmarkRootSlot> = [];
@@ -586,20 +585,24 @@ export struct BookmarkPageComp {
       Scroll() {
         Column() {
           if (this.bookmarkGroups.length === 0) {
-            Column() {
+            // 空状态说明放在页面内，避免 .onAppear 在 Tab 切换 / 子树重建时重复触发 Toast
+            Column({ space: 12 }) {
               Image($r('app.media.ic_bookmark'))
                 .width(72)
                 .height(72)
                 .fillColor($r('sys.color.ohos_id_color_text_secondary'))
                 .opacity(0.35)
+              Text('点击右上角「+」菜单可新建或导入收藏')
+                .fontSize(14)
+                .fontColor(this.contentSecondary)
+                .textAlign(TextAlign.Center)
+                .width('100%')
+                .lineHeight(22)
             }
             .width('100%')
             .constraintSize({ minHeight: '100%' })
             .justifyContent(FlexAlign.Center)
             .padding({ left: 32, right: 32, top: TITLE_CONTENT_GAP_VP })
-            .onAppear(() => {
-              this.onEmptyAppear();
-            })
           } else {
             this.BookmarkListWithForest(buildBookmarkNavForest(this.bookmarkGroups))
           }

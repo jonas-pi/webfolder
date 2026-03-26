@@ -7,6 +7,8 @@ export const SHEET_NEW_BOOKMARK: number = 3;
 export const SHEET_RENAME_FOLDER: number = 4;
 export const SHEET_MOVE_BOOKMARK: number = 5;
 export const SHEET_EDIT_BOOKMARK: number = 6;
+/** GitHub Gist 同步配置与上传/下载 */
+export const SHEET_GIST_SYNC: number = 7;
 
 // ── 业务限制 ─────────────────────────────────────────────────────────────────
 /** 书签文件夹路径层级上限（与 Edge「文件夹 / 子文件夹」一致） */

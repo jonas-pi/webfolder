@@ -61,6 +61,9 @@ export interface SettingsPageProps {
   contentSecondary: Resource;
   onOpenSearchSettings: () => void;
   onOpenBackgroundSettings: () => void;
+  onOpenGistSync: () => void;
+  /** 隐私政策：弹窗内可打开线上全文，并再次选择同意 / 不同意 */
+  onOpenPrivacyPolicy: () => void;
 }
 
 @Builder
@@ -160,6 +163,98 @@ export function BuildSettingsPage(props: SettingsPageProps) {
           props.onOpenBackgroundSettings();
         })
         .transition(listScaleOpacityAppearTransition(1))
+
+        Row() {
+          SettingsEntryIcon({
+            iconRes: $r('sys.symbol.arrow_2_circlepath'),
+            titleColor: props.contentPrimary,
+            epoch: props.iconAnimEpoch,
+            iconIndex: 2
+          })
+            .id(`settings_icon_gist_${props.iconAnimEpoch}`)
+          Column() {
+            Text('云端同步')
+              .fontSize(16)
+              .fontWeight(FontWeight.Medium)
+              .fontColor(props.contentPrimary)
+            Text('GitHub Gist · 与 BookmarkHub 扩展协同')
+              .fontSize(14)
+              .fontColor(props.contentSecondary)
+              .margin({ top: 2 })
+          }
+          .alignItems(HorizontalAlign.Start)
+          .layoutWeight(1)
+
+          SymbolGlyph($r('sys.symbol.chevron_right'))
+            .fontSize(20)
+            .fontColor([$r('sys.color.icon_tertiary')])
+        }
+        .width('100%')
+        .height(props.optionRowMinHeight)
+        .padding({
+          left: props.optionRowPadH,
+          right: props.optionRowPadH,
+          top: props.optionRowPadV,
+          bottom: props.optionRowPadV
+        })
+        .borderRadius(props.optionCardRadius)
+        .backgroundColor($r('app.color.card_background'))
+        .border({
+          width: 1,
+          color: $r('app.color.card_border')
+        })
+        .alignItems(VerticalAlign.Center)
+        .clickEffect(props.rowClickEffect)
+        .onClick(() => {
+          props.onOpenGistSync();
+        })
+        .transition(listScaleOpacityAppearTransition(2))
+
+        Row() {
+          SettingsEntryIcon({
+            iconRes: $r('sys.symbol.doc_plaintext'),
+            titleColor: props.contentPrimary,
+            epoch: props.iconAnimEpoch,
+            iconIndex: 3
+          })
+            .id(`settings_icon_privacy_${props.iconAnimEpoch}`)
+          Column() {
+            Text('隐私政策')
+              .fontSize(16)
+              .fontWeight(FontWeight.Medium)
+              .fontColor(props.contentPrimary)
+            Text($r('app.string.settings_privacy_policy_subtitle'))
+              .fontSize(14)
+              .fontColor(props.contentSecondary)
+              .margin({ top: 2 })
+          }
+          .alignItems(HorizontalAlign.Start)
+          .layoutWeight(1)
+
+          SymbolGlyph($r('sys.symbol.chevron_right'))
+            .fontSize(20)
+            .fontColor([$r('sys.color.icon_tertiary')])
+        }
+        .width('100%')
+        .height(props.optionRowMinHeight)
+        .padding({
+          left: props.optionRowPadH,
+          right: props.optionRowPadH,
+          top: props.optionRowPadV,
+          bottom: props.optionRowPadV
+        })
+        .borderRadius(props.optionCardRadius)
+        .backgroundColor($r('app.color.card_background'))
+        .border({
+          width: 1,
+          color: $r('app.color.card_border')
+        })
+        .alignItems(VerticalAlign.Center)
+        .clickEffect(props.rowClickEffect)
+        .onClick(() => {
+          props.onOpenPrivacyPolicy();
+        })
+        .transition(listScaleOpacityAppearTransition(3))
       }
       .width('100%')
       .padding({ left: 16, right: 16, top: 0, bottom: 16 })

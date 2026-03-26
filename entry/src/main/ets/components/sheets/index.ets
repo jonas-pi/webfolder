@@ -3,6 +3,7 @@ export { BuildNewBookmarkSheet } from '../NewBookmarkSheet';
 export { BuildSearchSettingsSheet } from '../SearchSettingsSheet';
 export { BuildBookmarkEditSheet, BuildFolderRenameSheet, BuildMoveBookmarkSheet } from '../EditSheets';
 export { BuildSheetFallbackClose } from '../UnifiedSheet';
+export { BuildGistSyncSheet } from './GistSyncSheet';
 export {
   resolveSheetRoute,
   SHEET_ROUTE_NONE,
@@ -12,5 +13,6 @@ export {
   SHEET_ROUTE_RENAME_FOLDER,
   SHEET_ROUTE_MOVE_BOOKMARK,
   SHEET_ROUTE_EDIT_BOOKMARK,
+  SHEET_ROUTE_GIST_SYNC,
   SHEET_ROUTE_FALLBACK_CLOSE
 } from './SheetRouter';
