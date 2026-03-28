@@ -1,4 +1,5 @@
 import { sheetEnterExitTransition } from '../../utils';
+import { GIST_PROVIDER_GITHUB, GIST_PROVIDER_GITEE } from '../../model/GistSyncSettings';
 
 export interface GistSyncSheetProps {
   navChromeBg: ResourceColor;
@@ -9,16 +10,24 @@ export interface GistSyncSheetProps {
   optionCardRadius: number;
   optionRowMinHeight: number;
   rowClickEffect: ClickEffect;
+  gistProvider: string;
   githubToken: string;
-  gistId: string;
-  gistFileName: string;
+  githubGistId: string;
+  githubFileName: string;
+  giteeToken: string;
+  giteeGistId: string;
+  giteeFileName: string;
   syncBusy: boolean;
   autoUploadAfterEdit: boolean;
   autoPullOnTabFocus: boolean;
   onBack: () => void;
-  onTokenChange: (v: string) => void;
-  onGistIdChange: (v: string) => void;
-  onFileNameChange: (v: string) => void;
+  onProviderChange: (provider: string) => void;
+  onGithubTokenChange: (v: string) => void;
+  onGithubGistIdChange: (v: string) => void;
+  onGithubFileNameChange: (v: string) => void;
+  onGiteeTokenChange: (v: string) => void;
+  onGiteeGistIdChange: (v: string) => void;
+  onGiteeFileNameChange: (v: string) => void;
   onAutoUploadChange: (on: boolean) => void;
   onAutoPullChange: (on: boolean) => void;
   onSaveConfig: () => void;
@@ -48,7 +57,7 @@ export function BuildGistSyncSheet(props: GistSyncSheetProps) {
           .fontSize(20)
           .fontWeight(FontWeight.Bold)
           .fontColor(props.contentPrimary)
-        Text('GitHub Gist · 与 BookmarkHub 扩展共用同一文件')
+        Text('GitHub Gist 或 Gitee 代码片段 · 载荷与 BookmarkHub 一致')
           .fontSize(14)
           .fontColor(props.contentSecondary)
           .margin({ top: 4 })
@@ -64,34 +73,101 @@ export function BuildGistSyncSheet(props: GistSyncSheetProps) {
 
     Scroll() {
       Column({ space: 14 }) {
-        Text('在 GitHub 创建带 gist 权限的 Token，并新建 Secret Gist；文件名须与浏览器扩展设置一致（默认 BookmarkHub）。')
+        Text('同步源')
           .fontSize(13)
           .fontColor(props.contentSecondary)
           .width('100%')
+        Row({ space: 10 }) {
+          Button('GitHub Gist')
+            .type(ButtonType.Normal)
+            .layoutWeight(1)
+            .height(44)
+            .fontSize(15)
+            .fontColor(props.gistProvider === GIST_PROVIDER_GITHUB ? Color.White : props.contentPrimary)
+            .backgroundColor(props.gistProvider === GIST_PROVIDER_GITHUB ?
+              $r('sys.color.ohos_id_color_emphasize') : $r('app.color.card_background'))
+            .border({
+              width: 1,
+              color: props.gistProvider === GIST_PROVIDER_GITHUB ?
+                $r('sys.color.ohos_id_color_emphasize') : $r('app.color.card_border')
+            })
+            .borderRadius(12)
+            .enabled(!props.syncBusy)
+            .onClick(() => {
+              props.onProviderChange(GIST_PROVIDER_GITHUB);
+            })
+          Button('Gitee 片段')
+            .type(ButtonType.Normal)
+            .layoutWeight(1)
+            .height(44)
+            .fontSize(15)
+            .fontColor(props.gistProvider === GIST_PROVIDER_GITEE ? Color.White : props.contentPrimary)
+            .backgroundColor(props.gistProvider === GIST_PROVIDER_GITEE ?
+              $r('sys.color.ohos_id_color_emphasize') : $r('app.color.card_background'))
+            .border({
+              width: 1,
+              color: props.gistProvider === GIST_PROVIDER_GITEE ?
+                $r('sys.color.ohos_id_color_emphasize') : $r('app.color.card_border')
+            })
+            .borderRadius(12)
+            .enabled(!props.syncBusy)
+            .onClick(() => {
+              props.onProviderChange(GIST_PROVIDER_GITEE);
+            })
+        }
+        .width('100%')
+        Text('GitHub 与 Gitee 的令牌、片段 ID、文件名分别保存；切换同步源仅切换当前上传/拉取使用的云端。')
+          .fontSize(12)
+          .fontColor(props.contentSecondary)
+          .width('100%')
+          .lineHeight(18)
 
-        Text('Token')
+        if (props.gistProvider === GIST_PROVIDER_GITEE) {
+          Text('在 Gitee 个人设置中创建私人令牌（需代码片段相关权限），新建「私密」代码片段；文件名建议与其它端一致（默认 BookmarkHub）。')
+            .fontSize(13)
+            .fontColor(props.contentSecondary)
+            .width('100%')
+        } else {
+          Text('在 GitHub 创建带 gist 权限的 Token，并新建 Secret Gist；文件名须与浏览器扩展设置一致（默认 BookmarkHub）。')
+            .fontSize(13)
+            .fontColor(props.contentSecondary)
+            .width('100%')
+        }
+
+        Text('访问令牌')
           .fontSize(13)
           .fontColor(props.contentSecondary)
           .width('100%')
-        TextInput({ text: props.githubToken, placeholder: 'ghp_xxxxxxxx' })
+        TextInput({
+          text: props.gistProvider === GIST_PROVIDER_GITEE ? props.giteeToken : props.githubToken,
+          placeholder: props.gistProvider === GIST_PROVIDER_GITEE ? 'Gitee 私人令牌' : 'ghp_xxxxxxxx'
+        })
           .height(48)
           .fontSize(15)
           .fontColor(props.contentPrimary)
-          .type(InputType.Password)
+          // 不用 Password：否则会强制系统「安全键盘」，不便粘贴 PAT；令牌仍仅存本机 prefs
+          .type(InputType.Normal)
           .backgroundColor($r('app.color.card_background'))
           .border({ width: 1, color: $r('app.color.card_border') })
           .borderRadius(12)
           .padding({ left: 12, right: 12 })
           .enabled(!props.syncBusy)
           .onChange((v: string) => {
-            props.onTokenChange(v);
+            if (props.gistProvider === GIST_PROVIDER_GITEE) {
+              props.onGiteeTokenChange(v);
+            } else {
+              props.onGithubTokenChange(v);
+            }
           })
 
-        Text('Gist ID')
+        Text('片段 ID')
           .fontSize(13)
           .fontColor(props.contentSecondary)
           .width('100%')
-        TextInput({ text: props.gistId, placeholder: '32 位十六进制 ID' })
+        TextInput({
+          text: props.gistProvider === GIST_PROVIDER_GITEE ? props.giteeGistId : props.githubGistId,
+          placeholder: '在片段 URL 中的 ID'
+        })
           .height(48)
           .fontSize(15)
           .fontColor(props.contentPrimary)
@@ -101,14 +177,21 @@ export function BuildGistSyncSheet(props: GistSyncSheetProps) {
           .padding({ left: 12, right: 12 })
           .enabled(!props.syncBusy)
           .onChange((v: string) => {
-            props.onGistIdChange(v);
+            if (props.gistProvider === GIST_PROVIDER_GITEE) {
+              props.onGiteeGistIdChange(v);
+            } else {
+              props.onGithubGistIdChange(v);
+            }
           })
 
-        Text('Gist 内文件名')
+        Text('片段内文件名')
           .fontSize(13)
           .fontColor(props.contentSecondary)
           .width('100%')
-        TextInput({ text: props.gistFileName, placeholder: 'BookmarkHub' })
+        TextInput({
+          text: props.gistProvider === GIST_PROVIDER_GITEE ? props.giteeFileName : props.githubFileName,
+          placeholder: 'BookmarkHub'
+        })
           .height(48)
           .fontSize(15)
           .fontColor(props.contentPrimary)
@@ -118,7 +201,11 @@ export function BuildGistSyncSheet(props: GistSyncSheetProps) {
           .padding({ left: 12, right: 12 })
           .enabled(!props.syncBusy)
           .onChange((v: string) => {
-            props.onFileNameChange(v);
+            if (props.gistProvider === GIST_PROVIDER_GITEE) {
+              props.onGiteeFileNameChange(v);
+            } else {
+              props.onGithubFileNameChange(v);
+            }
           })
 
         Row() {
@@ -127,7 +214,7 @@ export function BuildGistSyncSheet(props: GistSyncSheetProps) {
               .fontSize(15)
               .fontWeight(FontWeight.Medium)
               .fontColor(props.contentPrimary)
-            Text('本地书签变更写盘后约 4.5 秒防抖上传到 Gist')
+            Text('本地书签变更写盘后约 4.5 秒防抖上传到云端')
               .fontSize(12)
               .fontColor(props.contentSecondary)
               .margin({ top: 2 })
@@ -192,8 +279,9 @@ export function BuildGistSyncSheet(props: GistSyncSheetProps) {
           .width('100%')
           .height(48)
           .fontSize(16)
-          .fontColor(Color.White)
-          .backgroundColor($r('sys.color.ohos_id_color_text_secondary'))
+          .fontColor($r('sys.color.ohos_id_color_emphasize'))
+          .backgroundColor($r('app.color.card_background'))
+          .border({ width: 1, color: $r('sys.color.ohos_id_color_emphasize') })
           .borderRadius(12)
           .enabled(!props.syncBusy)
           .clickEffect(props.rowClickEffect)
@@ -202,7 +290,7 @@ export function BuildGistSyncSheet(props: GistSyncSheetProps) {
           })
 
         Row({ space: 12 }) {
-          Button('上传到 Gist')
+          Button('上传到云端')
             .type(ButtonType.Normal)
             .layoutWeight(1)
             .height(48)
@@ -216,7 +304,7 @@ export function BuildGistSyncSheet(props: GistSyncSheetProps) {
               props.onUpload();
             })
 
-          Button('从 Gist 拉取')
+          Button('从云端拉取')
             .type(ButtonType.Normal)
             .layoutWeight(1)
             .height(48)
@@ -233,7 +321,7 @@ export function BuildGistSyncSheet(props: GistSyncSheetProps) {
         }
         .width('100%')
 
-        Text('手动拉取会覆盖本机书签缓存；手动上传会覆盖 Gist 中该文件。自动同步依赖 SyncData 中的时间戳与本地「待上传」标记。')
+        Text('手动拉取会覆盖本机书签缓存；手动上传会覆盖云端该文件。GitHub 与 Gitee 之间数据格式相同，但不可混用同一 ID。')
           .fontSize(12)
           .fontColor(props.contentSecondary)
           .width('100%')

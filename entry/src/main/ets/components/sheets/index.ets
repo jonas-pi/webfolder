@@ -4,6 +4,7 @@ export { BuildSearchSettingsSheet } from '../SearchSettingsSheet';
 export { BuildBookmarkEditSheet, BuildFolderRenameSheet, BuildMoveBookmarkSheet } from '../EditSheets';
 export { BuildSheetFallbackClose } from '../UnifiedSheet';
 export { BuildGistSyncSheet } from './GistSyncSheet';
+export { BuildCloudSyncGuideSheet } from './CloudSyncGuideSheet';
 export {
   resolveSheetRoute,
   SHEET_ROUTE_NONE,
@@ -14,5 +15,6 @@ export {
   SHEET_ROUTE_MOVE_BOOKMARK,
   SHEET_ROUTE_EDIT_BOOKMARK,
   SHEET_ROUTE_GIST_SYNC,
+  SHEET_ROUTE_CLOUD_SYNC_GUIDE,
   SHEET_ROUTE_FALLBACK_CLOSE
 } from './SheetRouter';

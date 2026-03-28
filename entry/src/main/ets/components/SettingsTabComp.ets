@@ -5,26 +5,34 @@ import picker from '@ohos.file.picker';
 import { SettingsCache } from '../model';
 import type { GistSyncSettings } from '../model/GistSyncSettings';
 import {
+  GIST_PROVIDER_GITHUB,
+  GIST_PROVIDER_GITEE,
+  DEFAULT_GIST_FILE_NAME,
+  activeCredentialsFromSettings
+} from '../model/GistSyncSettings';
+import {
   OPTION_CARD_RADIUS_VP, OPTION_ROW_MIN_HEIGHT_VP, OPTION_ROW_PAD_H_VP, OPTION_ROW_PAD_V_VP,
   OPTION_SLIDER_CARD_PAD_VP, BOTTOM_NAV_BAR_HEIGHT_VP, TOAST_DURATION_SHORT_MS, TOAST_DURATION_LONG_MS,
-  SHEET_NONE, SHEET_BACKGROUND, SHEET_SEARCH_SETTINGS, SHEET_GIST_SYNC, SHEET_MODE_RESET_DELAY_MS,
+  SHEET_NONE, SHEET_BACKGROUND, SHEET_SEARCH_SETTINGS, SHEET_GIST_SYNC, SHEET_CLOUD_SYNC_GUIDE,
+  SHEET_MODE_RESET_DELAY_MS,
   DEFAULT_BACKGROUND_BLUR, DEFAULT_BACKGROUND_BRIGHTNESS
 } from '../constants/AppLayout';
 import { SEARCH_ENGINES } from '../constants/SearchEngines';
 import {
   buildSettingsCache, applySettingsCache, saveSettingsCache, loadSettingsCache,
   loadBookmarkSyncData, saveBookmarkSyncData,
-  defaultGistSyncSettings, saveGistSyncSettings, loadGistSyncSettings,
-  githubFetchGistRaw, extractGistFileText, githubPatchGistFiles,
+  saveGistSyncSettings, loadGistSyncSettings,
+  remoteFetchGistRaw, remoteExtractGistFileText, remotePatchGistFiles,
   setPrivacyPolicyAccepted, PRIVACY_POLICY_PAGE_URL
 } from '../services';
 import { bookmarkPayloadFromParsedJson, flatItemsToSyncData } from '../utils/BookmarkHubSyncConverter';
 import { copyByFd as fsCopyByFd, normalizePickerUriToPath as fsNormalizePickerUriToPath } from '../services';
 import { inferBackgroundFileSuffix } from '../utils';
 import {
-  BuildBackgroundSettingsSheet, BuildSearchSettingsSheet, BuildGistSyncSheet,
+  BuildBackgroundSettingsSheet, BuildSearchSettingsSheet, BuildGistSyncSheet, BuildCloudSyncGuideSheet,
   BuildSheetFallbackClose, resolveSheetRoute,
-  SHEET_ROUTE_BACKGROUND, SHEET_ROUTE_SEARCH_SETTINGS, SHEET_ROUTE_GIST_SYNC, SHEET_ROUTE_FALLBACK_CLOSE
+  SHEET_ROUTE_BACKGROUND, SHEET_ROUTE_SEARCH_SETTINGS, SHEET_ROUTE_GIST_SYNC, SHEET_ROUTE_CLOUD_SYNC_GUIDE,
+  SHEET_ROUTE_FALLBACK_CLOSE
 } from './sheets';
 import { BuildSettingsPage } from './SettingsPage';
 import { PrivacyConsentDialog } from './PrivacyConsentDialog';
@@ -40,6 +48,7 @@ export struct SettingsTabComp {
   @Consume('bgBrightness') backgroundBrightnessLevel: number;
   @Watch('onSettingsChanged') @Consume('searchEngineIdx') searchEngineIndex: number;
   @Watch('onSettingsChanged') @Consume('searchBoxPos') searchBoxPosition: number;
+  @Consume('immersiveEdgeLight') immersiveEdgeLight: boolean = true;
   @Consume('settingsTabAnimEpoch') settingsTabAnimEpoch: number;
   @Watch('onBackPressCloseChanged') @Consume('backPressCloseReq') backPressCloseReq: number = 0;
 
@@ -47,9 +56,13 @@ export struct SettingsTabComp {
   @State private sheetMode: number = SHEET_NONE;
   @State private previewingSlider: number = 0;
   /** Gist 同步页：表单与网络进行中状态 */
-  @State private gistGithubToken: string = '';
-  @State private gistIdInput: string = '';
-  @State private gistFileNameInput: string = '';
+  @State private gistProviderInput: string = GIST_PROVIDER_GITHUB;
+  @State private githubTokenInput: string = '';
+  @State private githubGistIdInput: string = '';
+  @State private githubFileNameInput: string = '';
+  @State private giteeTokenInput: string = '';
+  @State private giteeGistIdInput: string = '';
+  @State private giteeFileNameInput: string = '';
   @State private gistSyncBusy: boolean = false;
   @State private gistAutoUploadAfterEdit: boolean = false;
   @State private gistAutoPullOnTabFocus: boolean = false;
@@ -152,6 +165,10 @@ export struct SettingsTabComp {
     this.openSheet(SHEET_GIST_SYNC);
   }
 
+  private openCloudSyncGuideSheet(): void {
+    this.openSheet(SHEET_CLOUD_SYNC_GUIDE);
+  }
+
   /** 打开隐私确认弹窗（可点链接在浏览器查看 GitHub Pages 全文） */
   private openPrivacyPolicyEntry(): void {
     this.lightHaptic();
@@ -167,6 +184,23 @@ export struct SettingsTabComp {
         uri: PRIVACY_POLICY_PAGE_URL
       } as Want);
     } catch (_e) {
+    }
+  }
+
+  /** 云端同步说明页：打开 GitHub / Gitee 等外链 */
+  private async openExternalGuideUrl(url: string): Promise<void> {
+    if (url.length === 0) {
+      return;
+    }
+    try {
+      const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      await ctx.startAbility({
+        deviceId: '',
+        action: 'ohos.want.action.viewData',
+        uri: url
+      } as Want);
+    } catch (_e) {
+      this.showCapsuleToast('无法打开链接');
     }
   }
 
@@ -186,41 +220,57 @@ export struct SettingsTabComp {
     }
   }
 
+  /** 根据当前输入框组装完整设置（GitHub / Gitee 两套均写入） */
+  private buildGistSettingsFromInputs(): GistSyncSettings {
+    const defFn: string = DEFAULT_GIST_FILE_NAME;
+    return {
+      gistProvider: this.gistProviderInput === GIST_PROVIDER_GITEE ? GIST_PROVIDER_GITEE : GIST_PROVIDER_GITHUB,
+      github: {
+        gistToken: this.githubTokenInput.trim(),
+        gistId: this.githubGistIdInput.trim(),
+        gistFileName: this.githubFileNameInput.trim().length > 0 ? this.githubFileNameInput.trim() : defFn
+      },
+      gitee: {
+        gistToken: this.giteeTokenInput.trim(),
+        gistId: this.giteeGistIdInput.trim(),
+        gistFileName: this.giteeFileNameInput.trim().length > 0 ? this.giteeFileNameInput.trim() : defFn
+      },
+      autoUploadAfterEdit: this.gistAutoUploadAfterEdit,
+      autoPullOnTabFocus: this.gistAutoPullOnTabFocus
+    };
+  }
+
   /** 打开同步页前把磁盘上的 Token 等读入输入框 */
   private async loadGistFormFromDisk(): Promise<void> {
     const s: GistSyncSettings = await loadGistSyncSettings(this.gistSettingsCachePath());
-    this.gistGithubToken = s.githubToken;
-    this.gistIdInput = s.gistId;
-    this.gistFileNameInput = s.gistFileName.length > 0 ? s.gistFileName : defaultGistSyncSettings().gistFileName;
+    this.gistProviderInput = s.gistProvider === GIST_PROVIDER_GITEE ? GIST_PROVIDER_GITEE : GIST_PROVIDER_GITHUB;
+    this.githubTokenInput = s.github.gistToken;
+    this.githubGistIdInput = s.github.gistId;
+    this.githubFileNameInput = s.github.gistFileName.length > 0 ? s.github.gistFileName : DEFAULT_GIST_FILE_NAME;
+    this.giteeTokenInput = s.gitee.gistToken;
+    this.giteeGistIdInput = s.gitee.gistId;
+    this.giteeFileNameInput = s.gitee.gistFileName.length > 0 ? s.gitee.gistFileName : DEFAULT_GIST_FILE_NAME;
     this.gistAutoUploadAfterEdit = s.autoUploadAfterEdit;
     this.gistAutoPullOnTabFocus = s.autoPullOnTabFocus;
   }
 
   private persistGistFormToDisk(): void {
-    const obj: GistSyncSettings = {
-      githubToken: this.gistGithubToken.trim(),
-      gistId: this.gistIdInput.trim(),
-      gistFileName: this.gistFileNameInput.trim().length > 0 ? this.gistFileNameInput.trim() :
-        defaultGistSyncSettings().gistFileName,
-      autoUploadAfterEdit: this.gistAutoUploadAfterEdit,
-      autoPullOnTabFocus: this.gistAutoPullOnTabFocus
-    };
-    saveGistSyncSettings(this.gistSettingsCachePath(), obj);
+    saveGistSyncSettings(this.gistSettingsCachePath(), this.buildGistSettingsFromInputs());
   }
 
   private validateGistFormForSync(): string | null {
-    const token: string = this.gistGithubToken.trim();
-    const gid: string = this.gistIdInput.trim();
-    const fn: string = this.gistFileNameInput.trim().length > 0 ? this.gistFileNameInput.trim() :
-      defaultGistSyncSettings().gistFileName;
+    const a = activeCredentialsFromSettings(this.buildGistSettingsFromInputs());
+    const token: string = a.gistToken.trim();
+    const gid: string = a.gistId.trim();
+    const fn: string = a.gistFileName;
     if (token.length === 0) {
-      return '请填写 GitHub Token';
+      return '请填写访问令牌';
     }
     if (gid.length === 0) {
-      return '请填写 Gist ID';
+      return '请填写片段 ID';
     }
     if (fn.length === 0) {
-      return '请填写 Gist 文件名';
+      return '请填写片段内文件名';
     }
     return null;
   }
@@ -228,7 +278,7 @@ export struct SettingsTabComp {
   private onSaveGistConfigOnly(): void {
     this.lightHaptic();
     this.persistGistFormToDisk();
-    this.showCapsuleToast('已保存 Gist 配置');
+    this.showCapsuleToast('已保存云端同步配置');
   }
 
   private async onUploadBookmarksToGist(): Promise<void> {
@@ -238,10 +288,8 @@ export struct SettingsTabComp {
       return;
     }
     this.persistGistFormToDisk();
-    const token: string = this.gistGithubToken.trim();
-    const gid: string = this.gistIdInput.trim();
-    const fn: string = this.gistFileNameInput.trim().length > 0 ? this.gistFileNameInput.trim() :
-      defaultGistSyncSettings().gistFileName;
+    const syncSettings: GistSyncSettings = this.buildGistSettingsFromInputs();
+    const fn: string = activeCredentialsFromSettings(syncSettings).gistFileName;
     this.gistSyncBusy = true;
     try {
       let sync = await loadBookmarkSyncData(this.bookmarkCachePath());
@@ -251,9 +299,9 @@ export struct SettingsTabComp {
       sync.createDate = Date.now();
       sync.browser = 'HarmonyOS/HM';
       const body: string = JSON.stringify(sync);
-      await githubPatchGistFiles(token, gid, fn, body);
+      await remotePatchGistFiles(syncSettings, fn, body);
       saveBookmarkSyncData(this.bookmarkCachePath(), sync);
-      this.showCapsuleToast('已上传到 Gist');
+      this.showCapsuleToast('已上传到云端');
     } catch (e) {
       this.showCapsuleToast(`上传失败: ${JSON.stringify(e)}`, true);
     } finally {
@@ -268,23 +316,21 @@ export struct SettingsTabComp {
       return;
     }
     this.persistGistFormToDisk();
-    const token: string = this.gistGithubToken.trim();
-    const gid: string = this.gistIdInput.trim();
-    const fn: string = this.gistFileNameInput.trim().length > 0 ? this.gistFileNameInput.trim() :
-      defaultGistSyncSettings().gistFileName;
+    const syncSettings: GistSyncSettings = this.buildGistSettingsFromInputs();
+    const fn: string = activeCredentialsFromSettings(syncSettings).gistFileName;
     this.gistSyncBusy = true;
     try {
-      const gistJson: string = await githubFetchGistRaw(token, gid);
-      const fileText: string = await extractGistFileText(token, gistJson, fn);
+      const gistJson: string = await remoteFetchGistRaw(syncSettings);
+      const fileText: string = await remoteExtractGistFileText(syncSettings, gistJson, fn);
       const parsed: object = JSON.parse(fileText) as object;
       const sync = bookmarkPayloadFromParsedJson(parsed);
       if (sync === null) {
-        this.showCapsuleToast('Gist 文件内容不是有效的书签数据', true);
+        this.showCapsuleToast('云端文件内容不是有效的书签数据', true);
         return;
       }
       saveBookmarkSyncData(this.bookmarkCachePath(), sync);
       this.bookmarkDataReloadReq = this.bookmarkDataReloadReq + 1;
-      this.showCapsuleToast('已从 Gist 拉取并覆盖本机书签');
+      this.showCapsuleToast('已从云端拉取并覆盖本机书签');
       this.closeModalSheet();
     } catch (e) {
       this.showCapsuleToast(`拉取失败: ${JSON.stringify(e)}`, true);
@@ -302,7 +348,8 @@ export struct SettingsTabComp {
       backgroundBlurLevel: this.backgroundBlurLevel,
       backgroundBrightnessLevel: this.backgroundBrightnessLevel,
       searchEngineIndex: this.searchEngineIndex,
-      searchBoxPosition: this.searchBoxPosition
+      searchBoxPosition: this.searchBoxPosition,
+      immersiveEdgeLight: this.immersiveEdgeLight
     });
     saveSettingsCache(this.settingsCachePath(), obj);
   }
@@ -332,6 +379,9 @@ export struct SettingsTabComp {
       }
       if (patch.searchBoxPosition !== undefined) {
         this.searchBoxPosition = patch.searchBoxPosition;
+      }
+      if (patch.immersiveEdgeLight !== undefined) {
+        this.immersiveEdgeLight = patch.immersiveEdgeLight;
       }
     } catch (_e) {
       // 静默：损坏或空文件等不应打断使用
@@ -433,6 +483,16 @@ export struct SettingsTabComp {
           }
         }
       });
+    } else if (this.currentSheetRoute() === SHEET_ROUTE_CLOUD_SYNC_GUIDE) {
+      BuildCloudSyncGuideSheet({
+        navChromeBg: $r('sys.color.ohos_id_color_sub_background'),
+        contentPrimary: $r('sys.color.ohos_id_color_text_primary'),
+        contentSecondary: $r('sys.color.ohos_id_color_text_secondary'),
+        onBack: (): void => { this.closeModalSheet(); },
+        onOpenExternalUrl: (u: string): void => {
+          void this.openExternalGuideUrl(u);
+        }
+      });
     } else if (this.currentSheetRoute() === SHEET_ROUTE_GIST_SYNC) {
       BuildGistSyncSheet({
         navChromeBg: $r('sys.color.ohos_id_color_sub_background'),
@@ -443,16 +503,27 @@ export struct SettingsTabComp {
         optionCardRadius: OPTION_CARD_RADIUS_VP,
         optionRowMinHeight: OPTION_ROW_MIN_HEIGHT_VP,
         rowClickEffect: { level: ClickEffectLevel.MIDDLE, scale: 0.95 },
-        githubToken: this.gistGithubToken,
-        gistId: this.gistIdInput,
-        gistFileName: this.gistFileNameInput,
+        gistProvider: this.gistProviderInput,
+        githubToken: this.githubTokenInput,
+        githubGistId: this.githubGistIdInput,
+        githubFileName: this.githubFileNameInput,
+        giteeToken: this.giteeTokenInput,
+        giteeGistId: this.giteeGistIdInput,
+        giteeFileName: this.giteeFileNameInput,
         syncBusy: this.gistSyncBusy,
         autoUploadAfterEdit: this.gistAutoUploadAfterEdit,
         autoPullOnTabFocus: this.gistAutoPullOnTabFocus,
         onBack: (): void => { this.closeModalSheet(); },
-        onTokenChange: (v: string): void => { this.gistGithubToken = v; },
-        onGistIdChange: (v: string): void => { this.gistIdInput = v; },
-        onFileNameChange: (v: string): void => { this.gistFileNameInput = v; },
+        onProviderChange: (p: string): void => {
+          this.gistProviderInput = p;
+          this.persistGistFormToDisk();
+        },
+        onGithubTokenChange: (v: string): void => { this.githubTokenInput = v; },
+        onGithubGistIdChange: (v: string): void => { this.githubGistIdInput = v; },
+        onGithubFileNameChange: (v: string): void => { this.githubFileNameInput = v; },
+        onGiteeTokenChange: (v: string): void => { this.giteeTokenInput = v; },
+        onGiteeGistIdChange: (v: string): void => { this.giteeGistIdInput = v; },
+        onGiteeFileNameChange: (v: string): void => { this.giteeFileNameInput = v; },
         onAutoUploadChange: (on: boolean): void => {
           this.lightHaptic();
           this.gistAutoUploadAfterEdit = on;
@@ -520,6 +591,7 @@ export struct SettingsTabComp {
         onOpenSearchSettings: (): void => { this.openSearchSettingsSheet(); },
         onOpenBackgroundSettings: (): void => { this.openBackgroundSettings(); },
         onOpenGistSync: (): void => { this.openGistSyncSheet(); },
+        onOpenCloudSyncGuide: (): void => { this.openCloudSyncGuideSheet(); },
         onOpenPrivacyPolicy: (): void => { this.openPrivacyPolicyEntry(); }
       });
     }

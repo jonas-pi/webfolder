@@ -6,15 +6,22 @@ export interface SettingsStateSnapshot {
   backgroundBrightnessLevel: number;
   searchEngineIndex: number;
   searchBoxPosition: number;
+  /**
+   * 标题栏副背景延伸至状态栏区域（系统栏透明）；关闭时为独立顶占位 + 系统栏实色。
+   * 未传时按 true 处理。
+   */
+  immersiveEdgeLight?: boolean;
 }
 
 export function buildSettingsCache(snapshot: SettingsStateSnapshot): SettingsCache {
+  const immersive: boolean = snapshot.immersiveEdgeLight !== false;
   return {
     backgroundImagePath: snapshot.backgroundImagePath,
     backgroundBlurLevel: `${snapshot.backgroundBlurLevel}`,
     backgroundBrightnessLevel: `${snapshot.backgroundBrightnessLevel}`,
     searchEngineIndex: `${snapshot.searchEngineIndex}`,
-    searchBoxPosition: `${snapshot.searchBoxPosition}`
+    searchBoxPosition: `${snapshot.searchBoxPosition}`,
+    immersiveEdgeLight: immersive ? '1' : '0'
   };
 }
 
@@ -55,6 +62,10 @@ export function applySettingsCache(
     if (parsedPos === 0 || parsedPos === 1 || parsedPos === 2) {
       patch.searchBoxPosition = parsedPos;
     }
+  }
+  if (restored.immersiveEdgeLight !== undefined) {
+    const raw: string = restored.immersiveEdgeLight;
+    patch.immersiveEdgeLight = raw === '1' || raw === 'true';
   }
   return patch;
 }

@@ -14,21 +14,32 @@ export function mainTabTitleBarEmptyTrailing(): void {
 export struct MainTabTitleBar {
   @Prop title: string = '';
   @BuilderParam trailing: () => void = mainTabTitleBarEmptyTrailing;
+  @Consume('statusBarInsetVp') statusBarInsetVp: number = 38;
+  /** 与 Index 一致：true 时标题栏副背景向上延伸至状态栏区域 */
+  @Consume('immersiveEdgeLight') immersiveEdgeLight: boolean = true;
 
   build() {
-    Row() {
-      Text(this.title)
-        .fontSize(TITLE_BAR_FONT_SIZE)
-        .fontWeight(FontWeight.Bold)
-        .fontColor($r('sys.color.ohos_id_color_text_primary'))
-        .layoutWeight(1)
-        .textAlign(TextAlign.Start)
-      this.trailing()
+    Column() {
+      if (this.immersiveEdgeLight) {
+        Column()
+          .width('100%')
+          .height(this.statusBarInsetVp)
+      }
+      Row() {
+        Text(this.title)
+          .fontSize(TITLE_BAR_FONT_SIZE)
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('sys.color.ohos_id_color_text_primary'))
+          .layoutWeight(1)
+          .textAlign(TextAlign.Start)
+        this.trailing()
+      }
+      .width('100%')
+      .height(TITLE_BAR_HEIGHT_VP)
+      .padding({ left: 16, right: 16 })
+      .alignItems(VerticalAlign.Center)
     }
     .width('100%')
-    .height(TITLE_BAR_HEIGHT_VP)
-    .padding({ left: 16, right: 16 })
-    .alignItems(VerticalAlign.Center)
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
   }
 }

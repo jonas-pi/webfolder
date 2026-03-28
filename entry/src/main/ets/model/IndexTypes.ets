@@ -31,6 +31,8 @@ export interface SettingsCache {
   backgroundBrightnessLevel: string;
   searchEngineIndex?: string;
   searchBoxPosition?: string;
+  /** '1' 标题栏延伸至状态栏区域；'0' 独立顶占位 + 系统栏与副背景同色 */
+  immersiveEdgeLight?: string;
 }
 
 export interface FaviconCacheItem {

@@ -1,8 +1,9 @@
 import type { SyncDataInfo } from '../model/BookmarkSyncTypes';
+import { activeCredentialsFromSettings } from '../model/GistSyncSettings';
 import { bookmarkPayloadFromParsedJson, flatItemsToSyncData } from '../utils/BookmarkHubSyncConverter';
 import { loadBookmarkSyncData, saveBookmarkSyncData } from './BookmarkStorageService';
-import { loadGistSyncSettings, defaultGistSyncSettings } from './GistSettingsStorageService';
-import { githubFetchGistRaw, extractGistFileText, githubPatchGistFiles } from './GithubGistApi';
+import { loadGistSyncSettings } from './GistSettingsStorageService';
+import { remoteFetchGistRaw, remoteExtractGistFileText, remotePatchGistFiles } from './RemoteGistSyncApi';
 import { isBookmarkGistDirty } from './BookmarkGistLocalState';
 
 /** 本地编辑后防抖上传的等待时间（毫秒） */
@@ -32,10 +33,10 @@ export async function runGistAutoUploadFromDisk(filesDir: string): Promise<void>
   if (!settings.autoUploadAfterEdit) {
     return;
   }
-  const token: string = settings.githubToken.trim();
-  const gid: string = settings.gistId.trim();
-  const fn: string = settings.gistFileName.trim().length > 0 ? settings.gistFileName.trim() :
-    defaultGistSyncSettings().gistFileName;
+  const a = activeCredentialsFromSettings(settings);
+  const token: string = a.gistToken.trim();
+  const gid: string = a.gistId.trim();
+  const fn: string = a.gistFileName;
   if (!gistCredentialsReady(token, gid, fn)) {
     return;
   }
@@ -47,7 +48,7 @@ export async function runGistAutoUploadFromDisk(filesDir: string): Promise<void>
   sync.createDate = Date.now();
   sync.browser = 'HarmonyOS/HM';
   const payload: string = JSON.stringify(sync);
-  await githubPatchGistFiles(token, gid, fn, payload);
+  await remotePatchGistFiles(settings, fn, payload);
   saveBookmarkSyncData(bmPath, sync);
 }
 
@@ -59,10 +60,10 @@ export async function tryGistAutoPullFromDisk(filesDir: string): Promise<boolean
   if (!settings.autoPullOnTabFocus) {
     return false;
   }
-  const token: string = settings.githubToken.trim();
-  const gid: string = settings.gistId.trim();
-  const fn: string = settings.gistFileName.trim().length > 0 ? settings.gistFileName.trim() :
-    defaultGistSyncSettings().gistFileName;
+  const a = activeCredentialsFromSettings(settings);
+  const token: string = a.gistToken.trim();
+  const gid: string = a.gistId.trim();
+  const fn: string = a.gistFileName;
   if (!gistCredentialsReady(token, gid, fn)) {
     return false;
   }
@@ -72,8 +73,8 @@ export async function tryGistAutoPullFromDisk(filesDir: string): Promise<boolean
   const bmPath: string = bookmarkCachePath(filesDir);
   const localSync: SyncDataInfo | null = await loadBookmarkSyncData(bmPath);
   const localTs: number = localSync !== null && localSync.createDate > 0 ? localSync.createDate : 0;
-  const gistJson: string = await githubFetchGistRaw(token, gid);
-  const fileText: string = await extractGistFileText(token, gistJson, fn);
+  const gistJson: string = await remoteFetchGistRaw(settings);
+  const fileText: string = await remoteExtractGistFileText(settings, gistJson, fn);
   const remoteSync: SyncDataInfo | null = bookmarkPayloadFromParsedJson(JSON.parse(fileText) as object);
   if (remoteSync === null) {
     return false;

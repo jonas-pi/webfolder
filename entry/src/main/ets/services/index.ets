@@ -44,6 +44,12 @@ export {
 } from './GithubGistApi';
 
 export {
+  remoteFetchGistRaw,
+  remoteExtractGistFileText,
+  remotePatchGistFiles
+} from './RemoteGistSyncApi';
+
+export {
   runGistAutoUploadFromDisk,
   tryGistAutoPullFromDisk,
   GIST_AUTO_UPLOAD_DEBOUNCE_MS

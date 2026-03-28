@@ -5,6 +5,7 @@ import picker from '@ohos.file.picker';
 import {
   BookmarkGroup, BookmarkItem, DialogButtonResult, FaviconCacheItem, SwipeTxEntry, SwipeAnimPhaseEntry
 } from '../model';
+import { activeCredentialsFromSettings } from '../model/GistSyncSettings';
 import {
   SWIPE_ACTION_SLIDE_VP, SWIPE_ACTION_ICON_BTN_VP, OPTION_ROW_MIN_HEIGHT_VP,
   OPTION_ROW_PAD_H_VP, OPTION_ROW_PAD_V_VP, OPTION_CARD_RADIUS_VP, BOOKMARK_NODE_APPEAR_MS,
@@ -36,8 +37,8 @@ import {
   loadBookmarks, loadFaviconCache, saveBookmarks, saveFaviconCache,
   readBookmarkFileText as fsReadBookmarkFileText,
   runGistAutoUploadFromDisk, tryGistAutoPullFromDisk, GIST_AUTO_UPLOAD_DEBOUNCE_MS,
-  loadGistSyncSettings, defaultGistSyncSettings, loadBookmarkSyncData, saveBookmarkSyncData,
-  githubPatchGistFiles, githubFetchGistRaw, extractGistFileText, isBookmarkGistDirty
+  loadGistSyncSettings, loadBookmarkSyncData, saveBookmarkSyncData,
+  remotePatchGistFiles, remoteFetchGistRaw, remoteExtractGistFileText, isBookmarkGistDirty
 } from '../services';
 import { flatItemsToSyncData, bookmarkPayloadFromParsedJson } from '../utils/BookmarkHubSyncConverter';
 import {
@@ -48,6 +49,7 @@ import {
 } from './sheets';
 import { BookmarkPageComp } from './bookmark';
 import { MainTabTitleBar } from './chrome/MainTabTitleBar';
+import { clearPendingShare, peekPendingShare } from '../utils/ShareReceive';
 
 // ── 书签 Tab：书签列表 + 所有书签操作面板 ─────────────────────────────────────
 @Component
@@ -60,6 +62,7 @@ export struct BookmarkTabComp {
   @Watch('onBookmarkDataReloadReqChanged') @Consume('bookmarkDataReloadReq') bookmarkDataReloadReq: number = 0;
   /** 从其它 Tab 回到收藏夹时递增，尝试按配置自动从 Gist 拉取 */
   @Watch('onBookmarkGistAutoPullReqChanged') @Consume('bookmarkGistAutoPullReq') bookmarkGistAutoPullReq: number = 0;
+  @Watch('onOpenSharePrefillReqChanged') @Consume('openSharePrefillReq') openSharePrefillReq: number = 0;
   @Consume('anySheetOpen') anySheetOpen: boolean;
 
   // 书签列表状态
@@ -139,6 +142,18 @@ export struct BookmarkTabComp {
       return;
     }
     this.tryRunGistAutoPullFromCloud(false).catch((_e: Object) => {});
+  }
+
+  private onOpenSharePrefillReqChanged(): void {
+    if (this.openSharePrefillReq <= 0) {
+      return;
+    }
+    const pending = peekPendingShare();
+    if (pending === null) {
+      return;
+    }
+    clearPendingShare();
+    this.openNewBookmarkSheetWithSharePrefill(pending.url, pending.title);
   }
 
   /** 应用 filesDir，供 Gist 自动同步读写路径 */
@@ -262,12 +277,12 @@ export struct BookmarkTabComp {
     this.lightHaptic();
     const filesDir: string = this.appFilesDir();
     const s = await loadGistSyncSettings(this.gistSettingsCachePath());
-    const token: string = s.githubToken.trim();
-    const gid: string = s.gistId.trim();
-    const fn: string = s.gistFileName.trim().length > 0 ? s.gistFileName.trim() :
-      defaultGistSyncSettings().gistFileName;
+    const a = activeCredentialsFromSettings(s);
+    const token: string = a.gistToken.trim();
+    const gid: string = a.gistId.trim();
+    const fn: string = a.gistFileName;
     if (token.length === 0 || gid.length === 0 || fn.length === 0) {
-      this.showCapsuleToast('请先在「我的 → 云端同步」填写 Token、Gist ID 与文件名');
+      this.showCapsuleToast('请先在「我的 → 云端同步」填写令牌、片段 ID 与文件名');
       return;
     }
     this.cancelGistAutoUploadDebounce();
@@ -280,8 +295,8 @@ export struct BookmarkTabComp {
       const localTs: number =
         localSync !== null && localSync.createDate > 0 ? localSync.createDate : 0;
 
-      const gistJson: string = await githubFetchGistRaw(token, gid);
-      const fileText: string = await extractGistFileText(token, gistJson, fn);
+      const gistJson: string = await remoteFetchGistRaw(s);
+      const fileText: string = await remoteExtractGistFileText(s, gistJson, fn);
       const remoteSync = bookmarkPayloadFromParsedJson(JSON.parse(fileText) as object);
       if (remoteSync === null) {
         this.showCapsuleToast('云端书签文件格式无效', true);
@@ -296,7 +311,7 @@ export struct BookmarkTabComp {
         }
         localSync.createDate = Date.now();
         localSync.browser = 'HarmonyOS/HM';
-        await githubPatchGistFiles(token, gid, fn, JSON.stringify(localSync));
+        await remotePatchGistFiles(s, fn, JSON.stringify(localSync));
         saveBookmarkSyncData(bmPath, localSync);
         this.showCapsuleToast('本地有未推送修改，已上传到云端');
         return;
@@ -305,7 +320,7 @@ export struct BookmarkTabComp {
       if (remoteTs > localTs) {
         saveBookmarkSyncData(bmPath, remoteSync);
         this.bookmarkDataReloadReq = this.bookmarkDataReloadReq + 1;
-        this.showCapsuleToast('云端较新，已从 Gist 拉取');
+        this.showCapsuleToast('云端较新，已拉取书签');
         return;
       }
       if (localTs > remoteTs) {
@@ -314,7 +329,7 @@ export struct BookmarkTabComp {
         }
         localSync.createDate = Date.now();
         localSync.browser = 'HarmonyOS/HM';
-        await githubPatchGistFiles(token, gid, fn, JSON.stringify(localSync));
+        await remotePatchGistFiles(s, fn, JSON.stringify(localSync));
         saveBookmarkSyncData(bmPath, localSync);
         this.showCapsuleToast('本地较新，已上传到云端');
         return;
@@ -659,6 +674,20 @@ export struct BookmarkTabComp {
     this.newBookmarkTitle = '';
     this.newBookmarkUrl = '';
     // 不预选文件夹，强制用户主动选择保存位置
+    this.newBookmarkSelectedFolderPath = '';
+    this.newBookmarkIsCustomFolder = false;
+    this.newBookmarkFolderCustomPath = '';
+    this.newBookmarkCustomIsRootLevel = true;
+    this.newBookmarkCustomLockedStoragePrefix = '';
+    this.newBookmarkCustomChildInput = '';
+    this.expandedNewBookmarkFolderPaths = [];
+    this.openSheet(SHEET_NEW_BOOKMARK);
+  }
+
+  /** 自浏览器等系统分享入口：预填标题与网址，仍须用户选择文件夹 */
+  private openNewBookmarkSheetWithSharePrefill(url: string, title: string): void {
+    this.newBookmarkTitle = title.trim();
+    this.newBookmarkUrl = url.trim();
     this.newBookmarkSelectedFolderPath = '';
     this.newBookmarkIsCustomFolder = false;
     this.newBookmarkFolderCustomPath = '';

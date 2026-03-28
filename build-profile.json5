@@ -5,35 +5,52 @@
         "name": "default",
         "type": "HarmonyOS",
         "material": {
-          "certpath": "C:/Users/picha/.ohos/config/default_HM_atFxStLSE2Ikwl4MZK9jMFt10OB0OJ50t-w-6gFtecA=.cer",
-          "keyAlias": "debugKey",
-          "keyPassword": "0000001BF8E9BF71A2386B3DC35C96883E146C66147E68177ED20A534C033DC32D4C9825CC1D5B7A0D79D2",
-          "profile": "C:/Users/picha/.ohos/config/default_HM_atFxStLSE2Ikwl4MZK9jMFt10OB0OJ50t-w-6gFtecA=.p7b",
+          "certpath": "D:/证书/证书.cer",
+          "keyAlias": "JYDMM622",
+          "keyPassword": "00000018BC469139C1B43AAE0A31F68BFDFF25C3FAAFA49F593FD95D0242B5806C469A083987E9AA",
+          "profile": "D:/证书/证书Release.p7b",
           "signAlg": "SHA256withECDSA",
-          "storeFile": "C:/Users/picha/.ohos/config/default_HM_atFxStLSE2Ikwl4MZK9jMFt10OB0OJ50t-w-6gFtecA=.p12",
-          "storePassword": "0000001B54156E3529D7A05C65467F5BB73F0F88936AFAA5D29A6EB6862D824D8F121EAD90F1F748ED4C0E"
+          "storeFile": "D:/证书/证书.p12",
+          "storePassword": "000000189E0B287593BEDB2569F70B9BCA29EA62BFE56E4FBE4857E3623A620432B315AAD2141B52"
         }
       },
       {
-        "name": "release",
+        "name": "DEBUG",
         "type": "HarmonyOS",
         "material": {
-          "certpath": "D:/Users/picha/Downloads/WebBookmarks.cer",
-          "keyAlias": "releasekey",
-          "keyPassword": "00000018D8011F1C0E26E17BFC188EAE5DB4201990A701A802BEDEAAE09B68150CBAAE3A19147EAB",
-          "profile": "D:/Users/picha/Downloads/WebBookmarksRelease.p7b",
+          "certpath": "C:\\Users\\picha\\.ohos\\config\\DEBUG_HM_atFxStLSE2Ikwl4MZK9jMFt10OB0OJ50t-w-6gFtecA=.cer",
+          "keyAlias": "debugKey",
+          "keyPassword": "0000001BB42527C86245ED8661C6E0A6BD943491E6FE14D44362FED0FC72C8F16DF9856E58973F3DDEDBA5",
+          "profile": "C:\\Users\\picha\\.ohos\\config\\DEBUG_HM_atFxStLSE2Ikwl4MZK9jMFt10OB0OJ50t-w-6gFtecA=.p7b",
           "signAlg": "SHA256withECDSA",
-          "storeFile": "D:/Users/picha/Desktop/project/keystore/网址收藏夹.p12",
-          "storePassword": "0000001885F3C7637CD8B6E0B62EA64E261D47DCBA26127D5F55D5CF6E4CC40EEFC8A0986AD468F9"
+          "storeFile": "C:\\Users\\picha\\.ohos\\config\\DEBUG_HM_atFxStLSE2Ikwl4MZK9jMFt10OB0OJ50t-w-6gFtecA=.p12",
+          "storePassword": "0000001B1761BEE7C9D4672FE8079C2DC422EFFE55B5D6BA4A47C21151175B5DFB879F7B3D4909207DCCE4"
         }
       }
     ],
     "products": [
       {
         "name": "default",
-        "signingConfig": "default",
+        "signingConfig": "DEBUG",
+        "compileSdkVersion": "6.0.2(22)",
         "targetSdkVersion": "6.0.2(22)",
         "compatibleSdkVersion": "6.0.2(22)",
+        "arkTSVersion": "1.1",
+        "runtimeOS": "HarmonyOS",
+        "buildOption": {
+          "strictMode": {
+            "caseSensitiveCheck": true,
+            "useNormalizedOHMUrl": true
+          }
+        }
+      },
+      {
+        "name": "release",
+        "signingConfig": "default",
+        "compileSdkVersion": "6.0.2(22)",
+        "targetSdkVersion": "6.0.2(22)",
+        "compatibleSdkVersion": "6.0.2(22)",
+        "arkTSVersion": "1.1",
         "runtimeOS": "HarmonyOS",
         "buildOption": {
           "strictMode": {
@@ -60,7 +77,8 @@
         {
           "name": "default",
           "applyToProducts": [
-            "default"
+            "default",
+            "release"
           ]
         }
       ]

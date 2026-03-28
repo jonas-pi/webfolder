@@ -7,7 +7,9 @@ export const SHEET_ROUTE_MOVE_BOOKMARK: number = 5;
 export const SHEET_ROUTE_EDIT_BOOKMARK: number = 6;
 /** 与 AppLayout.SHEET_GIST_SYNC 对应 */
 export const SHEET_ROUTE_GIST_SYNC: number = 8;
-export const SHEET_ROUTE_FALLBACK_CLOSE: number = 9;
+/** 与 AppLayout.SHEET_CLOUD_SYNC_GUIDE 对应 */
+export const SHEET_ROUTE_CLOUD_SYNC_GUIDE: number = 9;
+export const SHEET_ROUTE_FALLBACK_CLOSE: number = 10;
 
 export function resolveSheetRoute(sheetMode: number, sheetVisible: boolean): number {
   if (sheetMode === 1) {
@@ -30,6 +32,9 @@ export function resolveSheetRoute(sheetMode: number, sheetVisible: boolean): num
   }
   if (sheetMode === 7) {
     return SHEET_ROUTE_GIST_SYNC;
+  }
+  if (sheetMode === 8) {
+    return SHEET_ROUTE_CLOUD_SYNC_GUIDE;
   }
   if (sheetVisible) {
     return SHEET_ROUTE_FALLBACK_CLOSE;

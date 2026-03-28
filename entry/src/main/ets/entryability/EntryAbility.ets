@@ -1,6 +1,8 @@
 import { AbilityConstant, Configuration, ConfigurationConstant, UIAbility, Want } from '@kit.AbilityKit';
+import { emitter } from '@kit.BasicServicesKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
+import { consumeShareWant, WB_CONFIGURATION_CHANGED_EVENT_ID } from '../utils/ShareReceive';
 
 const DOMAIN = 0x0000;
 
@@ -21,6 +23,11 @@ export default class EntryAbility extends UIAbility {
       hilog.error(DOMAIN, 'testTag', 'Failed to set colorMode. Cause: %{public}s', JSON.stringify(err));
     }
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onCreate');
+    consumeShareWant(want);
+  }
+
+  onNewWant(want: Want, _launchParam: AbilityConstant.LaunchParam): void {
+    consumeShareWant(want);
   }
 
   onDestroy(): void {
@@ -55,8 +62,9 @@ export default class EntryAbility extends UIAbility {
     }
     const onLightBg: string = '#E5000000';
     const onDarkBg: string = '#E5FFFFFF';
+    /** 状态栏默认透明，由 Index 按「沉浸顶栏」写回不透明；壁纸可延伸至状态栏区域 */
     const systemBarProperties: window.SystemBarProperties = {
-      statusBarColor: chromeBg,
+      statusBarColor: '#00000000',
       navigationBarColor: chromeBg,
       statusBarContentColor: isDark ? onDarkBg : onLightBg,
       navigationBarContentColor: isDark ? onDarkBg : onLightBg
@@ -96,6 +104,14 @@ export default class EntryAbility extends UIAbility {
   onConfigurationUpdate(newConfig: Configuration): void {
     window.getLastWindow(this.context).then((mainWindow: window.Window) => {
       this.applyStatusBarChrome(mainWindow, newConfig);
+      try {
+        emitter.emit(
+          WB_CONFIGURATION_CHANGED_EVENT_ID,
+          { priority: emitter.EventPriority.LOW },
+          { data: { t: Date.now() } }
+        );
+      } catch (_e) {
+      }
     }).catch((err: Error) => {
       hilog.warn(DOMAIN, 'testTag', 'onConfigurationUpdate getLastWindow: %{public}s', JSON.stringify(err));
     });
