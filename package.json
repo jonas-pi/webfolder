@@ -1,0 +1,28 @@
+{
+  "name": "hm",
+  "version": "1.0.01",
+  "description": "鸿蒙 **HarmonyOS NEXT** 轻量书签：导入 Edge / Chrome 导出的 **HTML 收藏夹**，点按即由系统浏览器打开；支持多引擎搜索、自定义背景与 **GitHub Gist / Gitee 代码片段** 云端同步（载荷与浏览器扩展 [BookmarkHub 衍生版](https://github.com/jonas-pi/BookmarkHub) 一致，扩展亦支持 **Gitee**，见该仓库说明；国内镜像 [Gitee](https://gitee.com/Jonas-yews/BookmarkHub)）。",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "icons": "node scripts/regenerate-app-icon.cjs",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "devDependencies": {
+    "sharp": "^0.34.5"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jonas-pi/webfolder.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/jonas-pi/webfolder/issues"
+  },
+  "homepage": "https://github.com/jonas-pi/webfolder#readme"
+}

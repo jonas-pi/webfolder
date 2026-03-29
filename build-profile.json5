@@ -7,24 +7,24 @@
         "material": {
           "certpath": "D:/证书/证书.cer",
           "keyAlias": "JYDMM622",
-          "keyPassword": "00000018BC469139C1B43AAE0A31F68BFDFF25C3FAAFA49F593FD95D0242B5806C469A083987E9AA",
+          "keyPassword": "00000018F2012E17E0AFE303666C24ACAEB267263EF696F3B094EA52F103346AFF69678CA6DA38D9",
           "profile": "D:/证书/证书Release.p7b",
           "signAlg": "SHA256withECDSA",
           "storeFile": "D:/证书/证书.p12",
-          "storePassword": "000000189E0B287593BEDB2569F70B9BCA29EA62BFE56E4FBE4857E3623A620432B315AAD2141B52"
+          "storePassword": "0000001860E376887678E1AE8AE91A2E9804C1C5C1A06794DF47D868E530CE9FAE04C5DA1FCD2791"
         }
       },
       {
         "name": "DEBUG",
         "type": "HarmonyOS",
         "material": {
-          "certpath": "C:\\Users\\picha\\.ohos\\config\\DEBUG_HM_atFxStLSE2Ikwl4MZK9jMFt10OB0OJ50t-w-6gFtecA=.cer",
+          "certpath": "C:/Users/picha/.ohos/config/DEBUG_HM_atFxStLSE2Ikwl4MZK9jMFt10OB0OJ50t-w-6gFtecA=.cer",
           "keyAlias": "debugKey",
-          "keyPassword": "0000001BB42527C86245ED8661C6E0A6BD943491E6FE14D44362FED0FC72C8F16DF9856E58973F3DDEDBA5",
-          "profile": "C:\\Users\\picha\\.ohos\\config\\DEBUG_HM_atFxStLSE2Ikwl4MZK9jMFt10OB0OJ50t-w-6gFtecA=.p7b",
+          "keyPassword": "0000001B8F22DD852CA3BAC4374E0E1ED54AFE170E844F60E2E1F602300A4C7AA031E324CC866DCF66DE10",
+          "profile": "C:/Users/picha/.ohos/config/DEBUG_HM_atFxStLSE2Ikwl4MZK9jMFt10OB0OJ50t-w-6gFtecA=.p7b",
           "signAlg": "SHA256withECDSA",
-          "storeFile": "C:\\Users\\picha\\.ohos\\config\\DEBUG_HM_atFxStLSE2Ikwl4MZK9jMFt10OB0OJ50t-w-6gFtecA=.p12",
-          "storePassword": "0000001B1761BEE7C9D4672FE8079C2DC422EFFE55B5D6BA4A47C21151175B5DFB879F7B3D4909207DCCE4"
+          "storeFile": "C:/Users/picha/.ohos/config/DEBUG_HM_atFxStLSE2Ikwl4MZK9jMFt10OB0OJ50t-w-6gFtecA=.p12",
+          "storePassword": "0000001B398DBBD895858E8D14491CE9C3245B743865384ECB332F67161FE6B41A24FC35F51A39CA920277"
         }
       }
     ],
