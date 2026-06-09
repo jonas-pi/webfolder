@@ -6,7 +6,7 @@ const URL_BOOKMARKHUB_REPO_GITEE: string = 'https://gitee.com/Jonas-yews/Bookmar
 const URL_GITHUB_NEW_GIST: string = 'https://gist.github.com/';
 const URL_GITHUB_PAT_CLASSIC: string = 'https://github.com/settings/tokens';
 const URL_GITHUB_PAT_FINE: string = 'https://github.com/settings/personal-access-tokens';
-const URL_GITEE_PERSONAL_TOKEN: string = 'https://gitee.com/personal_access_tokens';
+const URL_GITEE_PERSONAL_TOKEN: string = 'https://gitee.com/profile/personal_access_tokens';
 const URL_GITEE_MY_SNIPPETS: string = 'https://gitee.com/mine/snippets';
 
 export interface CloudSyncGuideSheetProps {
@@ -56,7 +56,7 @@ export function BuildCloudSyncGuideSheet(props: CloudSyncGuideSheetProps) {
 
     Scroll() {
       Column({ space: 0 }) {
-        Text('本应用通过 GitHub Gist 或 Gitee 代码片段存储与 BookmarkHub 相同格式的书签数据（SyncDataInfo）。以下为创建云端片段与本应用字段说明。')
+        Text('本应用通过 GitHub Gist、Gitee 代码片段或 WebDAV 文件存储与 BookmarkHub 相同格式的书签数据（SyncDataInfo）。以下为创建云端位置与本应用字段说明。')
           .fontSize(14)
           .fontColor(props.contentSecondary)
           .width('100%')
@@ -97,7 +97,7 @@ export function BuildCloudSyncGuideSheet(props: CloudSyncGuideSheetProps) {
           .fontColor(props.contentSecondary)
           .width('100%')
           .lineHeight(22)
-        Text('• 同步源：选 GitHub Gist 或 Gitee 片段。与浏览器扩展「云端类型」对应；两种云端片段 ID、令牌不可混用。')
+        Text('• 同步源：选 GitHub Gist、Gitee 片段或 WebDAV。三种云端凭据与定位信息不可混用。')
           .fontSize(14)
           .fontColor(props.contentSecondary)
           .width('100%')
@@ -121,7 +121,19 @@ export function BuildCloudSyncGuideSheet(props: CloudSyncGuideSheetProps) {
           .width('100%')
           .lineHeight(22)
           .margin({ top: 6 })
-        Text('若使用浏览器扩展，请对齐：gistProvider（github / gitee）、githubToken、gistID、gistFileName。')
+        Text('• WebDAV 文件地址：填写指向 JSON 文件的完整 URL，例如 https://dav.example.com/BookmarkHub/bookmarks.json。')
+          .fontSize(14)
+          .fontColor(props.contentSecondary)
+          .width('100%')
+          .lineHeight(22)
+          .margin({ top: 6 })
+        Text('• WebDAV 用户名 / 密码：建议使用服务商提供的应用密码；仅保存在本机。')
+          .fontSize(14)
+          .fontColor(props.contentSecondary)
+          .width('100%')
+          .lineHeight(22)
+          .margin({ top: 6 })
+        Text('若使用浏览器扩展的 Gist/Gitee 同步，请对齐：gistProvider（github / gitee）、githubToken、gistID、gistFileName。')
           .fontSize(14)
           .fontColor(props.contentSecondary)
           .width('100%')
@@ -199,7 +211,7 @@ export function BuildCloudSyncGuideSheet(props: CloudSyncGuideSheetProps) {
           .onClick((): void => {
             props.onOpenExternalUrl(URL_GITEE_PERSONAL_TOKEN);
           })
-        Text(URL_GITEE_MY_SNIPPETS + '（我的代码片段，可在此新建）')
+        Text(URL_GITEE_MY_SNIPPETS + '（我的代码片段，高级手动配置用）')
           .fontSize(13)
           .fontColor($r('sys.color.ohos_id_color_emphasize'))
           .decoration({ type: TextDecorationType.Underline })
@@ -210,29 +222,44 @@ export function BuildCloudSyncGuideSheet(props: CloudSyncGuideSheetProps) {
           })
         Text('Gitee 称「代码片段」；Open API 路径仍为 /gists/…。')
           .fontSize(14).fontColor(props.contentSecondary).width('100%').lineHeight(22)
-        Text('1）设置 → 安全设置 → 私人令牌（或 gitee.com/personal_access_tokens）。')
+        Text('1）设置 → 安全设置 → 私人令牌（或 gitee.com/profile/personal_access_tokens）。')
           .fontSize(14).fontColor(props.contentSecondary).width('100%').lineHeight(22).margin({ top: 6 })
         Text('2）生成令牌时勾选代码片段 / gists 相关权限（常见 scope 为 gists；以 Gitee 页面为准）。')
           .fontSize(14).fontColor(props.contentSecondary).width('100%').lineHeight(22).margin({ top: 6 })
-        Text('3）新建代码片段，可见性选私密；添加文件，文件名与「片段内文件名」一致（如 BookmarkHub），内容可先填 {}。')
+        Text('3）将令牌粘贴到本应用「Gitee 私人令牌」，点击「用当前令牌自动配置」，应用会复用或创建私密代码片段。')
           .fontSize(14).fontColor(props.contentSecondary).width('100%').lineHeight(22).margin({ top: 6 })
-        Text('4）保存后从片段页 URL 取片段 ID（仅标识符，非整段 https URL）。')
+        Text('4）如需手动配置，再从片段页 URL 取片段 ID（仅标识符，非整段 https URL）。')
           .fontSize(14).fontColor(props.contentSecondary).width('100%').lineHeight(22).margin({ top: 6 })
 
-        Text('四、使用注意')
+        Text('四、WebDAV：文件地址与应用密码')
           .fontSize(16)
           .fontWeight(FontWeight.Bold)
           .fontColor(props.contentPrimary)
           .width('100%')
           .margin({ top: 16, bottom: 8 })
-        Text('• 数据格式相同，但 GitHub 与 Gitee 的 Token、片段 ID 不可混用；切换同步源须整套重配。')
+        Text('1）在你的网盘或 WebDAV 服务里准备一个 JSON 文件，内容可先填 {}。')
+          .fontSize(14).fontColor(props.contentSecondary).width('100%').lineHeight(22)
+        Text('2）把该文件的完整 WebDAV 地址填入「WebDAV 文件地址」；这里需要文件 URL，不是目录 URL。')
+          .fontSize(14).fontColor(props.contentSecondary).width('100%').lineHeight(22).margin({ top: 6 })
+        Text('3）用户名与密码使用 WebDAV 凭据；如果服务商支持应用密码，优先使用应用密码。')
+          .fontSize(14).fontColor(props.contentSecondary).width('100%').lineHeight(22).margin({ top: 6 })
+        Text('4）上传会通过 PUT 覆盖该文件，从云端拉取会通过 GET 读取该文件。')
+          .fontSize(14).fontColor(props.contentSecondary).width('100%').lineHeight(22).margin({ top: 6 })
+
+        Text('五、使用注意')
+          .fontSize(16)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(props.contentPrimary)
+          .width('100%')
+          .margin({ top: 16, bottom: 8 })
+        Text('• 数据格式相同，但 GitHub、Gitee 与 WebDAV 的凭据和定位信息不可混用；切换同步源须整套重配。')
           .fontSize(14).fontColor(props.contentSecondary).width('100%').lineHeight(22)
         Text('• 上传到云端会覆盖远端该文件；从云端拉取会覆盖本机书签缓存。首次使用前请备份。')
           .fontSize(14).fontColor(props.contentSecondary).width('100%').lineHeight(22).margin({ top: 6 })
-        Text('• 本应用通过 HTTPS 访问 api.github.com 或 gitee.com/api/v5。')
+        Text('• 本应用通过 HTTPS 访问 api.github.com、gitee.com/api/v5 或你填写的 WebDAV 文件地址。')
           .fontSize(14).fontColor(props.contentSecondary).width('100%').lineHeight(22).margin({ top: 6 })
 
-        Text('五、接口与术语（供核对）')
+        Text('六、接口与术语（供核对）')
           .fontSize(16)
           .fontWeight(FontWeight.Bold)
           .fontColor(props.contentPrimary)
@@ -242,7 +269,9 @@ export function BuildCloudSyncGuideSheet(props: CloudSyncGuideSheetProps) {
           .fontSize(14).fontColor(props.contentSecondary).width('100%').lineHeight(22)
         Text('Gitee：查询参数 access_token=<token>，OpenAPI v5 /gists/{id} 等。')
           .fontSize(14).fontColor(props.contentSecondary).width('100%').lineHeight(22).margin({ top: 6 })
-        Text('界面「片段」在 GitHub 侧即 Gist，在 Gitee 侧即代码片段。')
+        Text('WebDAV：Authorization: Basic <base64(username:password)>，GET / PUT 目标文件。')
+          .fontSize(14).fontColor(props.contentSecondary).width('100%').lineHeight(22).margin({ top: 6 })
+        Text('界面「片段」在 GitHub 侧即 Gist，在 Gitee 侧即代码片段；WebDAV 侧直接对应一个远端文件。')
           .fontSize(14).fontColor(props.contentSecondary).width('100%').lineHeight(22).margin({ top: 6 })
       }
       .width('100%')

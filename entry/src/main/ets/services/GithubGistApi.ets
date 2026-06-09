@@ -15,6 +15,18 @@ interface GithubGistPatchRequestBody {
   files: Record<string, GithubGistPatchFileEntry>;
 }
 
+/** 创建 Secret Gist 的请求体 */
+interface GithubCreateGistRequestBody {
+  description: string;
+  public: boolean;
+  files: Record<string, GithubGistPatchFileEntry>;
+}
+
+export interface GithubEnsureGistResult {
+  gistId: string;
+  created: boolean;
+}
+
 /**
  * 构造 GitHub REST 请求头（与 BookmarkHub 扩展使用的 API 版本一致）。
  */
@@ -93,6 +105,71 @@ async function httpGithubString(
 export async function githubFetchGistRaw(token: string, gistId: string): Promise<string> {
   const url: string = `${GITHUB_API_PREFIX}/gists/${gistId}`;
   return httpGithubString(http.RequestMethod.GET, url, githubJsonHeaders(token), undefined);
+}
+
+/** GET 当前授权用户可访问的 Gist 列表，供自动配置时复用已有同步 Gist。 */
+export async function githubListGistsRaw(token: string): Promise<string> {
+  const url: string = `${GITHUB_API_PREFIX}/gists?per_page=100`;
+  return httpGithubString(http.RequestMethod.GET, url, githubJsonHeaders(token), undefined);
+}
+
+function findGistIdByFileName(gistsJson: string, fileName: string): string {
+  const arr: Array<Object> = JSON.parse(gistsJson) as Array<Object>;
+  let i: number = 0;
+  while (i < arr.length) {
+    const item = arr[i] as Record<string, Object | undefined>;
+    const filesVal: Object | undefined = item['files'];
+    const idVal: Object | undefined = item['id'];
+    if (filesVal !== undefined && typeof idVal === 'string') {
+      const filesRec = filesVal as Record<string, Object | undefined>;
+      if (filesRec[fileName] !== undefined) {
+        return idVal as string;
+      }
+    }
+    i++;
+  }
+  return '';
+}
+
+/** 创建私密 Gist，返回新建 Gist ID。 */
+export async function githubCreateGistWithFile(
+  token: string,
+  fileName: string,
+  fileContent: string
+): Promise<string> {
+  const url: string = `${GITHUB_API_PREFIX}/gists`;
+  const fileEntry: GithubGistPatchFileEntry = { content: fileContent };
+  const filesMap: Record<string, GithubGistPatchFileEntry> = {};
+  filesMap[fileName] = fileEntry;
+  const payload: GithubCreateGistRequestBody = {
+    description: 'BookmarkHub sync data',
+    public: false,
+    files: filesMap
+  };
+  const raw: string = await httpGithubString(http.RequestMethod.POST, url, githubJsonHeaders(token), JSON.stringify(payload));
+  const rec = JSON.parse(raw) as Record<string, Object | undefined>;
+  const idVal: Object | undefined = rec['id'];
+  if (typeof idVal !== 'string' || (idVal as string).length === 0) {
+    throw new Error('GitHub 已创建 Gist，但响应中没有 id');
+  }
+  return idVal as string;
+}
+
+/**
+ * 自动配置用：优先复用含指定文件名的 Gist；没有则创建一个 Secret Gist。
+ */
+export async function githubEnsureGistWithFile(
+  token: string,
+  fileName: string,
+  initialContent: string
+): Promise<GithubEnsureGistResult> {
+  const listJson: string = await githubListGistsRaw(token);
+  const existingId: string = findGistIdByFileName(listJson, fileName);
+  if (existingId.length > 0) {
+    return { gistId: existingId, created: false };
+  }
+  const newId: string = await githubCreateGistWithFile(token, fileName, initialContent);
+  return { gistId: newId, created: true };
 }
 
 /**

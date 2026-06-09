@@ -1,5 +1,10 @@
 import type { SyncDataInfo } from '../model/BookmarkSyncTypes';
-import { activeCredentialsFromSettings } from '../model/GistSyncSettings';
+import {
+  activeCredentialsFromSettings,
+  activeWebDavCredentialsFromSettings,
+  isWebDavProvider
+} from '../model/GistSyncSettings';
+import type { GistSyncSettings } from '../model/GistSyncSettings';
 import { bookmarkPayloadFromParsedJson, flatItemsToSyncData } from '../utils/BookmarkHubSyncConverter';
 import { loadBookmarkSyncData, saveBookmarkSyncData } from './BookmarkStorageService';
 import { loadGistSyncSettings } from './GistSettingsStorageService';
@@ -24,6 +29,15 @@ function gistCredentialsReady(token: string, gistId: string, fileName: string): 
   return token.trim().length > 0 && gistId.trim().length > 0 && fileName.trim().length > 0;
 }
 
+function remoteCredentialsReady(settings: GistSyncSettings): boolean {
+  if (isWebDavProvider(settings)) {
+    const w = activeWebDavCredentialsFromSettings(settings);
+    return w.webDavUrl.trim().length > 0 && w.username.trim().length > 0 && w.password.length > 0;
+  }
+  const a = activeCredentialsFromSettings(settings);
+  return gistCredentialsReady(a.gistToken, a.gistId, a.gistFileName);
+}
+
 /**
  * 将当前磁盘上的书签快照上传到 Gist（成功后会更新 createDate 并 clear dirty）。
  * 供防抖任务调用；若未开启自动上传或配置不全则立即返回。
@@ -34,10 +48,8 @@ export async function runGistAutoUploadFromDisk(filesDir: string): Promise<void>
     return;
   }
   const a = activeCredentialsFromSettings(settings);
-  const token: string = a.gistToken.trim();
-  const gid: string = a.gistId.trim();
   const fn: string = a.gistFileName;
-  if (!gistCredentialsReady(token, gid, fn)) {
+  if (!remoteCredentialsReady(settings)) {
     return;
   }
   const bmPath: string = bookmarkCachePath(filesDir);
@@ -61,10 +73,8 @@ export async function tryGistAutoPullFromDisk(filesDir: string): Promise<boolean
     return false;
   }
   const a = activeCredentialsFromSettings(settings);
-  const token: string = a.gistToken.trim();
-  const gid: string = a.gistId.trim();
   const fn: string = a.gistFileName;
-  if (!gistCredentialsReady(token, gid, fn)) {
+  if (!remoteCredentialsReady(settings)) {
     return false;
   }
   if (isBookmarkGistDirty(filesDir)) {

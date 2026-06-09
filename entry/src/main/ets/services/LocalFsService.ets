@@ -3,8 +3,8 @@ import util from '@ohos.util';
 
 export function canAccessPath(pathOrUri: string): boolean {
   try {
-    fs.accessSync(pathOrUri);
-    return true;
+    const accessible: boolean = fs.accessSync(pathOrUri);
+    return accessible !== false;
   } catch (_) {
     return false;
   }

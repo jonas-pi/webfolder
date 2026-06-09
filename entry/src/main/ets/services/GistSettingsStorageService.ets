@@ -1,10 +1,12 @@
 import fs from '@ohos.file.fs';
-import type { GistProviderCredentials, GistSyncSettings } from '../model/GistSyncSettings';
+import type { GistProviderCredentials, GistSyncSettings, WebDavProviderCredentials } from '../model/GistSyncSettings';
 import {
   DEFAULT_GIST_FILE_NAME,
   GIST_PROVIDER_GITHUB,
   GIST_PROVIDER_GITEE,
-  defaultGistProviderCredentials
+  GIST_PROVIDER_WEBDAV,
+  defaultGistProviderCredentials,
+  defaultWebDavProviderCredentials
 } from '../model/GistSyncSettings';
 import { canAccessPath, writeTextFile } from './LocalFsService';
 
@@ -14,6 +16,7 @@ export function defaultGistSyncSettings(): GistSyncSettings {
     gistProvider: GIST_PROVIDER_GITHUB,
     github: defaultGistProviderCredentials(),
     gitee: defaultGistProviderCredentials(),
+    webdav: defaultWebDavProviderCredentials(),
     autoUploadAfterEdit: false,
     autoPullOnTabFocus: false
   };
@@ -37,6 +40,24 @@ function parseNestedCredential(obj: Object | undefined): GistProviderCredentials
   return { gistToken: t, gistId: id, gistFileName: fn };
 }
 
+function parseNestedWebDavCredential(obj: Object | undefined): WebDavProviderCredentials | null {
+  if (obj === undefined || typeof obj !== 'object') {
+    return null;
+  }
+  const r = obj as Record<string, string | undefined>;
+  const url: string = typeof r['webDavUrl'] === 'string' ? r['webDavUrl'] : '';
+  const username: string = typeof r['username'] === 'string' ? r['username'] : '';
+  const password: string = typeof r['password'] === 'string' ? r['password'] : '';
+  return { webDavUrl: url, username: username, password: password };
+}
+
+function normalizeProvider(providerRaw: string): string {
+  if (providerRaw === GIST_PROVIDER_GITEE || providerRaw === GIST_PROVIDER_WEBDAV) {
+    return providerRaw;
+  }
+  return GIST_PROVIDER_GITHUB;
+}
+
 export async function loadGistSyncSettings(cachePath: string): Promise<GistSyncSettings> {
   if (!canAccessPath(cachePath)) {
     return defaultGistSyncSettings();
@@ -49,11 +70,11 @@ export async function loadGistSyncSettings(cachePath: string): Promise<GistSyncS
     const parsed: object = JSON.parse(content) as object;
     const rec = parsed as Record<string, string | Object | undefined>;
     let provider: string = typeof rec['gistProvider'] === 'string' ? (rec['gistProvider'] as string) : '';
-    if (provider !== GIST_PROVIDER_GITEE) {
-      provider = GIST_PROVIDER_GITHUB;
-    }
+    provider = normalizeProvider(provider);
     const ghNested: GistProviderCredentials | null = parseNestedCredential(rec['github'] as Object | undefined);
     const giteeNested: GistProviderCredentials | null = parseNestedCredential(rec['gitee'] as Object | undefined);
+    const webdavNested: WebDavProviderCredentials | null =
+      parseNestedWebDavCredential(rec['webdav'] as Object | undefined);
     if (ghNested !== null && giteeNested !== null) {
       const autoUpVal: Object | undefined = rec['autoUploadAfterEdit'];
       const autoPullVal: Object | undefined = rec['autoPullOnTabFocus'];
@@ -61,6 +82,7 @@ export async function loadGistSyncSettings(cachePath: string): Promise<GistSyncS
         gistProvider: provider,
         github: ghNested,
         gitee: giteeNested,
+        webdav: webdavNested !== null ? webdavNested : defaultWebDavProviderCredentials(),
         autoUploadAfterEdit: autoUpVal === true,
         autoPullOnTabFocus: autoPullVal === true
       };
@@ -78,6 +100,7 @@ export async function loadGistSyncSettings(cachePath: string): Promise<GistSyncS
     }
     const github: GistProviderCredentials = defaultGistProviderCredentials();
     const gitee: GistProviderCredentials = defaultGistProviderCredentials();
+    const webdav: WebDavProviderCredentials = defaultWebDavProviderCredentials();
     const legacyRow: GistProviderCredentials = { gistToken: token, gistId: id, gistFileName: fileName };
     if (provider === GIST_PROVIDER_GITEE) {
       gitee.gistToken = legacyRow.gistToken;
@@ -94,6 +117,7 @@ export async function loadGistSyncSettings(cachePath: string): Promise<GistSyncS
       gistProvider: provider,
       github: github,
       gitee: gitee,
+      webdav: webdav,
       autoUploadAfterEdit: autoUpVal === true,
       autoPullOnTabFocus: autoPullVal === true
     };

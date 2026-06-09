@@ -5,7 +5,12 @@ import picker from '@ohos.file.picker';
 import {
   BookmarkGroup, BookmarkItem, DialogButtonResult, FaviconCacheItem, SwipeTxEntry, SwipeAnimPhaseEntry
 } from '../model';
-import { activeCredentialsFromSettings } from '../model/GistSyncSettings';
+import type { GistSyncSettings } from '../model/GistSyncSettings';
+import {
+  activeCredentialsFromSettings,
+  activeWebDavCredentialsFromSettings,
+  isWebDavProvider
+} from '../model/GistSyncSettings';
 import {
   SWIPE_ACTION_SLIDE_VP, SWIPE_ACTION_ICON_BTN_VP, OPTION_ROW_MIN_HEIGHT_VP,
   OPTION_ROW_PAD_H_VP, OPTION_ROW_PAD_V_VP, OPTION_CARD_RADIUS_VP, BOOKMARK_NODE_APPEAR_MS,
@@ -27,7 +32,8 @@ import {
   getSwipeAnimPhase as resolveSwipeAnimPhase, getSwipeTranslateX as resolveSwipeTranslateX,
   removeSwipeAnimPhase as removeSwipeAnimPhaseEntry, removeSwipeTranslate as removeSwipeTranslateEntry,
   swipeRowKeyBookmark as buildSwipeRowKeyBookmark, swipeRowKeyFolder as buildSwipeRowKeyFolder,
-  upsertSwipeAnimPhase as upsertSwipeAnimPhaseEntry, upsertSwipeTranslate as upsertSwipeTranslateEntry
+  upsertSwipeAnimPhase as upsertSwipeAnimPhaseEntry, upsertSwipeTranslate as upsertSwipeTranslateEntry,
+  errorMessageFromThrown
 } from '../utils';
 import {
   confirmNewBookmarkFlow, confirmRenameFolderFlow, confirmDeleteFolderFlow,
@@ -35,6 +41,7 @@ import {
   faviconSourceForUrl, isFaviconFailedForUrl, markFaviconFailedForUrl,
   prefetchFavicons as prefetchFaviconsByService,
   loadBookmarks, loadFaviconCache, saveBookmarks, saveFaviconCache,
+  canAccessPath,
   readBookmarkFileText as fsReadBookmarkFileText,
   runGistAutoUploadFromDisk, tryGistAutoPullFromDisk, GIST_AUTO_UPLOAD_DEBOUNCE_MS,
   loadGistSyncSettings, loadBookmarkSyncData, saveBookmarkSyncData,
@@ -162,6 +169,15 @@ export struct BookmarkTabComp {
     return ctx.filesDir;
   }
 
+  private remoteSyncReadyForManual(settings: GistSyncSettings): boolean {
+    if (isWebDavProvider(settings)) {
+      const w = activeWebDavCredentialsFromSettings(settings);
+      return w.webDavUrl.trim().length > 0 && w.username.trim().length > 0 && w.password.length > 0;
+    }
+    const a = activeCredentialsFromSettings(settings);
+    return a.gistToken.trim().length > 0 && a.gistId.trim().length > 0 && a.gistFileName.trim().length > 0;
+  }
+
   private cancelGistAutoUploadDebounce(): void {
     if (this.gistAutoUploadTimerId !== -1) {
       clearTimeout(this.gistAutoUploadTimerId);
@@ -278,11 +294,11 @@ export struct BookmarkTabComp {
     const filesDir: string = this.appFilesDir();
     const s = await loadGistSyncSettings(this.gistSettingsCachePath());
     const a = activeCredentialsFromSettings(s);
-    const token: string = a.gistToken.trim();
-    const gid: string = a.gistId.trim();
     const fn: string = a.gistFileName;
-    if (token.length === 0 || gid.length === 0 || fn.length === 0) {
-      this.showCapsuleToast('请先在「我的 → 云端同步」填写令牌、片段 ID 与文件名');
+    if (!this.remoteSyncReadyForManual(s)) {
+      this.showCapsuleToast(isWebDavProvider(s) ?
+        '请先在「我的 → 云端同步」填写 WebDAV 地址、用户名与密码' :
+        '请先在「我的 → 云端同步」填写令牌、片段 ID 与文件名');
       return;
     }
     this.cancelGistAutoUploadDebounce();
@@ -337,7 +353,7 @@ export struct BookmarkTabComp {
 
       this.showCapsuleToast('本地与云端版本一致');
     } catch (e) {
-      this.showCapsuleToast(`同步失败：${JSON.stringify(e)}`, true);
+      this.showCapsuleToast(`同步失败：${errorMessageFromThrown(e)}`, true);
     } finally {
       this.stopManualGistSyncSpin();
     }
@@ -483,11 +499,23 @@ export struct BookmarkTabComp {
     this.scheduleGistAutoUploadAfterLocalSave();
   }
 
+  private isMissingLocalDataError(err: Object): boolean {
+    const msg: string = errorMessageFromThrown(err).toLowerCase();
+    return msg.includes('13900002') ||
+      msg.includes('no such file') ||
+      msg.includes('not exist') ||
+      msg.includes('不存在');
+  }
+
   /**
    * @param showRestoreToast true：启动恢复时提示条数；false：Gist 等静默刷新后由调用方已 Toast
    */
   private async loadBookmarksFromLocal(showRestoreToast: boolean = true): Promise<void> {
-    const restored = await loadBookmarks(this.bookmarkCachePath());
+    const cachePath: string = this.bookmarkCachePath();
+    if (!canAccessPath(cachePath)) {
+      return;
+    }
+    const restored = await loadBookmarks(cachePath);
     if (restored === null) { return; }
     // 本地 JSON 数组顺序即导入/HTML 顺序，用默认分组即可
     this.expandedFolders = [];
@@ -1071,8 +1099,11 @@ export struct BookmarkTabComp {
 
   // ── 生命周期 ───────────────────────────────────────────────────────────────
   aboutToAppear(): void {
-    this.loadBookmarksFromLocal(true).catch((_err: Object) => {
-      this.showCapsuleToast('书签恢复失败，请重新导入', true);
+    this.loadBookmarksFromLocal(true).catch((err: Object) => {
+      if (this.isMissingLocalDataError(err)) {
+        return;
+      }
+      this.showCapsuleToast(`书签恢复失败：${errorMessageFromThrown(err)}`, true);
     });
     this.loadFaviconCacheFromLocal().then(() => {
       this.prefetchFavicons(collectAllBookmarksFromGroups(this.bookmarkGroups)).catch((_err: Object) => {});

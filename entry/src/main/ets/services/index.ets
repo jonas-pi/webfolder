@@ -40,14 +40,34 @@ export {
 export {
   githubFetchGistRaw,
   extractGistFileText,
-  githubPatchGistFiles
+  githubPatchGistFiles,
+  githubEnsureGistWithFile
 } from './GithubGistApi';
+export type { GithubEnsureGistResult } from './GithubGistApi';
+
+export {
+  giteeEnsureGistWithFile
+} from './GiteeGistApi';
+export type { GiteeEnsureGistResult } from './GiteeGistApi';
+
+export {
+  GITHUB_OAUTH_CLIENT_ID,
+  isGithubOAuthConfigured,
+  requestGithubDeviceCode,
+  pollGithubDeviceAccessToken
+} from './GithubOAuthSyncApi';
+export type { GithubDeviceCodeResult, GithubOAuthTokenResult } from './GithubOAuthSyncApi';
 
 export {
   remoteFetchGistRaw,
   remoteExtractGistFileText,
   remotePatchGistFiles
 } from './RemoteGistSyncApi';
+
+export {
+  webDavFetchFileText,
+  webDavPutFileText
+} from './WebDavSyncApi';
 
 export {
   runGistAutoUploadFromDisk,

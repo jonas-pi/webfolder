@@ -2,13 +2,18 @@ import { common, Want } from '@kit.AbilityKit';
 import vibrator from '@ohos.vibrator';
 import fs from '@ohos.file.fs';
 import picker from '@ohos.file.picker';
+import pasteboard from '@ohos.pasteboard';
 import { SettingsCache } from '../model';
+import type { SyncDataInfo } from '../model';
 import type { GistSyncSettings } from '../model/GistSyncSettings';
 import {
   GIST_PROVIDER_GITHUB,
   GIST_PROVIDER_GITEE,
+  GIST_PROVIDER_WEBDAV,
   DEFAULT_GIST_FILE_NAME,
-  activeCredentialsFromSettings
+  activeCredentialsFromSettings,
+  activeWebDavCredentialsFromSettings,
+  isWebDavProvider
 } from '../model/GistSyncSettings';
 import {
   OPTION_CARD_RADIUS_VP, OPTION_ROW_MIN_HEIGHT_VP, OPTION_ROW_PAD_H_VP, OPTION_ROW_PAD_V_VP,
@@ -23,11 +28,15 @@ import {
   loadBookmarkSyncData, saveBookmarkSyncData,
   saveGistSyncSettings, loadGistSyncSettings,
   remoteFetchGistRaw, remoteExtractGistFileText, remotePatchGistFiles,
+  isGithubOAuthConfigured, requestGithubDeviceCode, pollGithubDeviceAccessToken, githubEnsureGistWithFile,
+  giteeEnsureGistWithFile,
+  canAccessPath,
   setPrivacyPolicyAccepted, PRIVACY_POLICY_PAGE_URL
 } from '../services';
+import type { GiteeEnsureGistResult, GithubDeviceCodeResult, GithubEnsureGistResult, GithubOAuthTokenResult } from '../services';
 import { bookmarkPayloadFromParsedJson, flatItemsToSyncData } from '../utils/BookmarkHubSyncConverter';
 import { copyByFd as fsCopyByFd, normalizePickerUriToPath as fsNormalizePickerUriToPath } from '../services';
-import { inferBackgroundFileSuffix } from '../utils';
+import { errorMessageFromThrown, inferBackgroundFileSuffix } from '../utils';
 import {
   BuildBackgroundSettingsSheet, BuildSearchSettingsSheet, BuildGistSyncSheet, BuildCloudSyncGuideSheet,
   BuildSheetFallbackClose, resolveSheetRoute,
@@ -63,7 +72,17 @@ export struct SettingsTabComp {
   @State private giteeTokenInput: string = '';
   @State private giteeGistIdInput: string = '';
   @State private giteeFileNameInput: string = '';
+  @State private webDavUrlInput: string = '';
+  @State private webDavUsernameInput: string = '';
+  @State private webDavPasswordInput: string = '';
   @State private gistSyncBusy: boolean = false;
+  @State private githubQuickConnectBusy: boolean = false;
+  @State private giteeQuickConnectBusy: boolean = false;
+  @State private githubQuickConnectUserCode: string = '';
+  @State private githubQuickConnectVerificationUri: string = '';
+  @State private githubQuickConnectStatusText: string = '';
+  @State private githubManualConfigExpanded: boolean = false;
+  @State private giteeManualConfigExpanded: boolean = false;
   @State private gistAutoUploadAfterEdit: boolean = false;
   @State private gistAutoPullOnTabFocus: boolean = false;
   private sheetModeResetTimer: number = -1;
@@ -204,6 +223,25 @@ export struct SettingsTabComp {
     }
   }
 
+  private async copyTextToClipboard(text: string): Promise<boolean> {
+    if (text.length === 0) {
+      return false;
+    }
+    try {
+      const data: pasteboard.PasteData = pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, text);
+      await pasteboard.getSystemPasteboard().setData(data);
+      return true;
+    } catch (_e) {
+      return false;
+    }
+  }
+
+  private async onGithubCopyUserCode(): Promise<void> {
+    this.lightHaptic();
+    const ok: boolean = await this.copyTextToClipboard(this.githubQuickConnectUserCode);
+    this.showCapsuleToast(ok ? 'GitHub 验证码已复制' : '复制失败，请手动复制验证码');
+  }
+
   /**
    * 用户选择「不同意」或对话框 cancel：清除本地同意标记（下次启动再次强制弹窗），并立即退出应用。
    */
@@ -224,7 +262,8 @@ export struct SettingsTabComp {
   private buildGistSettingsFromInputs(): GistSyncSettings {
     const defFn: string = DEFAULT_GIST_FILE_NAME;
     return {
-      gistProvider: this.gistProviderInput === GIST_PROVIDER_GITEE ? GIST_PROVIDER_GITEE : GIST_PROVIDER_GITHUB,
+      gistProvider: this.gistProviderInput === GIST_PROVIDER_GITEE ? GIST_PROVIDER_GITEE :
+        (this.gistProviderInput === GIST_PROVIDER_WEBDAV ? GIST_PROVIDER_WEBDAV : GIST_PROVIDER_GITHUB),
       github: {
         gistToken: this.githubTokenInput.trim(),
         gistId: this.githubGistIdInput.trim(),
@@ -235,6 +274,11 @@ export struct SettingsTabComp {
         gistId: this.giteeGistIdInput.trim(),
         gistFileName: this.giteeFileNameInput.trim().length > 0 ? this.giteeFileNameInput.trim() : defFn
       },
+      webdav: {
+        webDavUrl: this.webDavUrlInput.trim(),
+        username: this.webDavUsernameInput.trim(),
+        password: this.webDavPasswordInput
+      },
       autoUploadAfterEdit: this.gistAutoUploadAfterEdit,
       autoPullOnTabFocus: this.gistAutoPullOnTabFocus
     };
@@ -243,13 +287,17 @@ export struct SettingsTabComp {
   /** 打开同步页前把磁盘上的 Token 等读入输入框 */
   private async loadGistFormFromDisk(): Promise<void> {
     const s: GistSyncSettings = await loadGistSyncSettings(this.gistSettingsCachePath());
-    this.gistProviderInput = s.gistProvider === GIST_PROVIDER_GITEE ? GIST_PROVIDER_GITEE : GIST_PROVIDER_GITHUB;
+    this.gistProviderInput = s.gistProvider === GIST_PROVIDER_GITEE ? GIST_PROVIDER_GITEE :
+      (s.gistProvider === GIST_PROVIDER_WEBDAV ? GIST_PROVIDER_WEBDAV : GIST_PROVIDER_GITHUB);
     this.githubTokenInput = s.github.gistToken;
     this.githubGistIdInput = s.github.gistId;
     this.githubFileNameInput = s.github.gistFileName.length > 0 ? s.github.gistFileName : DEFAULT_GIST_FILE_NAME;
     this.giteeTokenInput = s.gitee.gistToken;
     this.giteeGistIdInput = s.gitee.gistId;
     this.giteeFileNameInput = s.gitee.gistFileName.length > 0 ? s.gitee.gistFileName : DEFAULT_GIST_FILE_NAME;
+    this.webDavUrlInput = s.webdav.webDavUrl;
+    this.webDavUsernameInput = s.webdav.username;
+    this.webDavPasswordInput = s.webdav.password;
     this.gistAutoUploadAfterEdit = s.autoUploadAfterEdit;
     this.gistAutoPullOnTabFocus = s.autoPullOnTabFocus;
   }
@@ -259,7 +307,25 @@ export struct SettingsTabComp {
   }
 
   private validateGistFormForSync(): string | null {
-    const a = activeCredentialsFromSettings(this.buildGistSettingsFromInputs());
+    const settings: GistSyncSettings = this.buildGistSettingsFromInputs();
+    if (isWebDavProvider(settings)) {
+      const w = activeWebDavCredentialsFromSettings(settings);
+      const url: string = w.webDavUrl.trim();
+      if (url.length === 0) {
+        return '请填写 WebDAV 文件地址';
+      }
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        return 'WebDAV 地址需以 http:// 或 https:// 开头';
+      }
+      if (w.username.trim().length === 0) {
+        return '请填写 WebDAV 用户名';
+      }
+      if (w.password.length === 0) {
+        return '请填写 WebDAV 密码或应用密码';
+      }
+      return null;
+    }
+    const a = activeCredentialsFromSettings(settings);
     const token: string = a.gistToken.trim();
     const gid: string = a.gistId.trim();
     const fn: string = a.gistFileName;
@@ -273,6 +339,153 @@ export struct SettingsTabComp {
       return '请填写片段内文件名';
     }
     return null;
+  }
+
+  private async buildCurrentBookmarkSyncForQuickConnect(): Promise<SyncDataInfo> {
+    let sync: SyncDataInfo | null = await loadBookmarkSyncData(this.bookmarkCachePath());
+    if (sync === null) {
+      sync = flatItemsToSyncData([]);
+    }
+    sync.createDate = Date.now();
+    sync.browser = 'HarmonyOS/HM';
+    return sync;
+  }
+
+  private async saveInitialBookmarkCacheAfterQuickConnect(
+    localCacheExisted: boolean,
+    fallbackSync: SyncDataInfo,
+    preferRemote: boolean
+  ): Promise<void> {
+    if (localCacheExisted) {
+      return;
+    }
+    let syncToSave: SyncDataInfo = fallbackSync;
+    if (preferRemote) {
+      try {
+        const syncSettings: GistSyncSettings = this.buildGistSettingsFromInputs();
+        const fn: string = activeCredentialsFromSettings(syncSettings).gistFileName;
+        const gistJson: string = await remoteFetchGistRaw(syncSettings);
+        const fileText: string = await remoteExtractGistFileText(syncSettings, gistJson, fn);
+        const remoteSync: SyncDataInfo | null = bookmarkPayloadFromParsedJson(JSON.parse(fileText) as object);
+        if (remoteSync !== null) {
+          syncToSave = remoteSync;
+        }
+      } catch (_e) {
+        syncToSave = fallbackSync;
+      }
+    }
+    saveBookmarkSyncData(this.bookmarkCachePath(), syncToSave);
+    this.bookmarkDataReloadReq = this.bookmarkDataReloadReq + 1;
+  }
+
+  private async onGithubQuickConnect(): Promise<void> {
+    if (this.githubQuickConnectBusy || this.gistSyncBusy) {
+      return;
+    }
+    this.lightHaptic();
+    this.gistProviderInput = GIST_PROVIDER_GITHUB;
+    if (!isGithubOAuthConfigured()) {
+      this.persistGistFormToDisk();
+      this.showCapsuleToast('开发版未配置 GitHub OAuth Client ID', true);
+      return;
+    }
+    this.githubQuickConnectBusy = true;
+    this.gistSyncBusy = true;
+    this.githubQuickConnectUserCode = '';
+    this.githubQuickConnectVerificationUri = '';
+    this.githubQuickConnectStatusText = '等待 GitHub 授权…';
+    try {
+      const device: GithubDeviceCodeResult = await requestGithubDeviceCode();
+      this.githubQuickConnectUserCode = device.userCode;
+      this.githubQuickConnectVerificationUri = device.verificationUri;
+      const copied: boolean = await this.copyTextToClipboard(device.userCode);
+      this.showCapsuleToast(copied ?
+        `验证码已复制，请在 GitHub 粘贴 ${device.userCode}` :
+        `请在 GitHub 输入验证码 ${device.userCode}`, true);
+      await this.openExternalGuideUrl(device.verificationUri);
+
+      const tokenResult: GithubOAuthTokenResult =
+        await pollGithubDeviceAccessToken(device.deviceCode, device.interval, device.expiresIn);
+      this.githubQuickConnectStatusText = '正在配置 GitHub…';
+      const fn: string =
+        this.githubFileNameInput.trim().length > 0 ? this.githubFileNameInput.trim() : DEFAULT_GIST_FILE_NAME;
+      const localBookmarkCacheExisted: boolean = canAccessPath(this.bookmarkCachePath());
+      const sync: SyncDataInfo = await this.buildCurrentBookmarkSyncForQuickConnect();
+      const ensureResult: GithubEnsureGistResult =
+        await githubEnsureGistWithFile(tokenResult.accessToken, fn, JSON.stringify(sync));
+
+      this.githubTokenInput = tokenResult.accessToken;
+      this.githubGistIdInput = ensureResult.gistId;
+      this.githubFileNameInput = fn;
+      this.gistProviderInput = GIST_PROVIDER_GITHUB;
+      this.persistGistFormToDisk();
+      if (ensureResult.created) {
+        saveBookmarkSyncData(this.bookmarkCachePath(), sync);
+        this.bookmarkDataReloadReq = this.bookmarkDataReloadReq + 1;
+      } else {
+        await this.saveInitialBookmarkCacheAfterQuickConnect(localBookmarkCacheExisted, sync, true);
+      }
+      this.showCapsuleToast(ensureResult.created ?
+        '已连接 GitHub 并创建私密 Gist' :
+        '已连接 GitHub 并复用已有 Gist');
+      this.githubQuickConnectUserCode = '';
+      this.githubQuickConnectVerificationUri = '';
+    } catch (e) {
+      this.showCapsuleToast(`GitHub 连接失败: ${errorMessageFromThrown(e)}`, true);
+    } finally {
+      this.githubQuickConnectBusy = false;
+      this.gistSyncBusy = false;
+      this.githubQuickConnectStatusText = '';
+    }
+  }
+
+  private async onGiteeOpenTokenPage(): Promise<void> {
+    this.lightHaptic();
+    await this.openExternalGuideUrl('https://gitee.com/profile/personal_access_tokens');
+  }
+
+  private async onGiteeQuickConnect(): Promise<void> {
+    if (this.giteeQuickConnectBusy || this.gistSyncBusy) {
+      return;
+    }
+    this.lightHaptic();
+    this.gistProviderInput = GIST_PROVIDER_GITEE;
+    const token: string = this.giteeTokenInput.trim();
+    if (token.length === 0) {
+      this.persistGistFormToDisk();
+      this.showCapsuleToast('请先填写 Gitee 私人令牌');
+      return;
+    }
+    this.giteeQuickConnectBusy = true;
+    this.gistSyncBusy = true;
+    try {
+      const fn: string =
+        this.giteeFileNameInput.trim().length > 0 ? this.giteeFileNameInput.trim() : DEFAULT_GIST_FILE_NAME;
+      const localBookmarkCacheExisted: boolean = canAccessPath(this.bookmarkCachePath());
+      const sync: SyncDataInfo = await this.buildCurrentBookmarkSyncForQuickConnect();
+      const ensureResult: GiteeEnsureGistResult =
+        await giteeEnsureGistWithFile(token, fn, JSON.stringify(sync));
+
+      this.giteeTokenInput = token;
+      this.giteeGistIdInput = ensureResult.gistId;
+      this.giteeFileNameInput = fn;
+      this.gistProviderInput = GIST_PROVIDER_GITEE;
+      this.persistGistFormToDisk();
+      if (ensureResult.created) {
+        saveBookmarkSyncData(this.bookmarkCachePath(), sync);
+        this.bookmarkDataReloadReq = this.bookmarkDataReloadReq + 1;
+      } else {
+        await this.saveInitialBookmarkCacheAfterQuickConnect(localBookmarkCacheExisted, sync, true);
+      }
+      this.showCapsuleToast(ensureResult.created ?
+        '已配置 Gitee 并创建私密代码片段' :
+        '已配置 Gitee 并复用已有代码片段');
+    } catch (e) {
+      this.showCapsuleToast(`Gitee 配置失败: ${errorMessageFromThrown(e)}`, true);
+    } finally {
+      this.giteeQuickConnectBusy = false;
+      this.gistSyncBusy = false;
+    }
   }
 
   private onSaveGistConfigOnly(): void {
@@ -303,7 +516,7 @@ export struct SettingsTabComp {
       saveBookmarkSyncData(this.bookmarkCachePath(), sync);
       this.showCapsuleToast('已上传到云端');
     } catch (e) {
-      this.showCapsuleToast(`上传失败: ${JSON.stringify(e)}`, true);
+      this.showCapsuleToast(`上传失败: ${errorMessageFromThrown(e)}`, true);
     } finally {
       this.gistSyncBusy = false;
     }
@@ -333,7 +546,7 @@ export struct SettingsTabComp {
       this.showCapsuleToast('已从云端拉取并覆盖本机书签');
       this.closeModalSheet();
     } catch (e) {
-      this.showCapsuleToast(`拉取失败: ${JSON.stringify(e)}`, true);
+      this.showCapsuleToast(`拉取失败: ${errorMessageFromThrown(e)}`, true);
     } finally {
       this.gistSyncBusy = false;
     }
@@ -510,7 +723,18 @@ export struct SettingsTabComp {
         giteeToken: this.giteeTokenInput,
         giteeGistId: this.giteeGistIdInput,
         giteeFileName: this.giteeFileNameInput,
+        webDavUrl: this.webDavUrlInput,
+        webDavUsername: this.webDavUsernameInput,
+        webDavPassword: this.webDavPasswordInput,
         syncBusy: this.gistSyncBusy,
+        githubQuickConnectBusy: this.githubQuickConnectBusy,
+        giteeQuickConnectBusy: this.giteeQuickConnectBusy,
+        githubQuickConnectReady: isGithubOAuthConfigured(),
+        githubQuickConnectUserCode: this.githubQuickConnectUserCode,
+        githubQuickConnectVerificationUri: this.githubQuickConnectVerificationUri,
+        githubQuickConnectStatusText: this.githubQuickConnectStatusText,
+        githubManualConfigExpanded: this.githubManualConfigExpanded,
+        giteeManualConfigExpanded: this.giteeManualConfigExpanded,
         autoUploadAfterEdit: this.gistAutoUploadAfterEdit,
         autoPullOnTabFocus: this.gistAutoPullOnTabFocus,
         onBack: (): void => { this.closeModalSheet(); },
@@ -524,6 +748,21 @@ export struct SettingsTabComp {
         onGiteeTokenChange: (v: string): void => { this.giteeTokenInput = v; },
         onGiteeGistIdChange: (v: string): void => { this.giteeGistIdInput = v; },
         onGiteeFileNameChange: (v: string): void => { this.giteeFileNameInput = v; },
+        onWebDavUrlChange: (v: string): void => { this.webDavUrlInput = v; },
+        onWebDavUsernameChange: (v: string): void => { this.webDavUsernameInput = v; },
+        onWebDavPasswordChange: (v: string): void => { this.webDavPasswordInput = v; },
+        onGithubQuickConnect: (): void => { this.onGithubQuickConnect().catch((_e: Object) => {}); },
+        onGithubCopyUserCode: (): void => { this.onGithubCopyUserCode().catch((_e: Object) => {}); },
+        onGiteeOpenTokenPage: (): void => { this.onGiteeOpenTokenPage().catch((_e: Object) => {}); },
+        onGiteeQuickConnect: (): void => { this.onGiteeQuickConnect().catch((_e: Object) => {}); },
+        onGithubManualConfigToggle: (): void => {
+          this.lightHaptic();
+          this.githubManualConfigExpanded = !this.githubManualConfigExpanded;
+        },
+        onGiteeManualConfigToggle: (): void => {
+          this.lightHaptic();
+          this.giteeManualConfigExpanded = !this.giteeManualConfigExpanded;
+        },
         onAutoUploadChange: (on: boolean): void => {
           this.lightHaptic();
           this.gistAutoUploadAfterEdit = on;

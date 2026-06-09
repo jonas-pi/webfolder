@@ -1,6 +1,6 @@
 # 网址收藏夹
 
-鸿蒙 **HarmonyOS NEXT** 轻量书签：导入 Edge / Chrome 导出的 **HTML 收藏夹**，点按即由系统浏览器打开；支持多引擎搜索、自定义背景与 **GitHub Gist / Gitee 代码片段** 云端同步（载荷与浏览器扩展 [BookmarkHub 衍生版](https://github.com/jonas-pi/BookmarkHub) 一致，扩展亦支持 **Gitee**，见该仓库说明；国内镜像 [Gitee](https://gitee.com/Jonas-yews/BookmarkHub)）。
+鸿蒙 **HarmonyOS NEXT** 轻量书签：导入 Edge / Chrome 导出的 **HTML 收藏夹**，点按即由系统浏览器打开；支持多引擎搜索、自定义背景与 **GitHub Gist / Gitee 代码片段 / WebDAV** 云端同步（载荷与浏览器扩展 [BookmarkHub 衍生版](https://github.com/jonas-pi/BookmarkHub) 一致，扩展亦支持 **Gitee**，见该仓库说明；国内镜像 [Gitee](https://gitee.com/Jonas-yews/BookmarkHub)）。
 
 ## 安装
 
@@ -10,8 +10,8 @@
 
 - **导入：** 收藏夹 Tab → 菜单 **导入收藏**，选择 `.html`（Netscape 书签格式）。
 - **搜索 / 背景：** **我的** 中搜索设置、设置背景（图片、虚化、明暗度）。
-- **云端同步：** **我的 → 云端同步** 配置令牌、片段 ID、文件名与 **同步源（GitHub 或 Gitee）**；可选编辑后自动上传、切回收藏夹 Tab 时自动拉取。细则见 [docs/云端同步使用说明.md](docs/云端同步使用说明.md)。**上传覆盖远端、拉取覆盖本机缓存**，首次请备份。
-- **PC 浏览器配套：** 需单独安装上述 **BookmarkHub 衍生版** 扩展（[GitHub](https://github.com/jonas-pi/BookmarkHub/releases) / [Gitee 发行版](https://gitee.com/Jonas-yews/BookmarkHub/releases) 下载 zip 加载），两端令牌、片段 ID、文件名及同步源须一致。
+- **云端同步：** **我的 → 云端同步** 配置 **同步源（GitHub、Gitee 或 WebDAV）**；GitHub/Gitee 支持自动创建或复用片段，WebDAV 直接填写文件地址。可选编辑后自动上传、切回收藏夹 Tab 时自动拉取。细则见 [docs/云端同步使用说明.md](docs/云端同步使用说明.md)。**上传覆盖远端、拉取覆盖本机缓存**，首次请备份。
+- **PC 浏览器配套：** 需单独安装上述 **BookmarkHub 衍生版** 扩展（[GitHub](https://github.com/jonas-pi/BookmarkHub/releases) / [Gitee 发行版](https://gitee.com/Jonas-yews/BookmarkHub/releases) 下载 zip 加载）；使用 Gist/Gitee 时两端令牌、片段 ID、文件名及同步源须一致。
 
 ## 截图
 

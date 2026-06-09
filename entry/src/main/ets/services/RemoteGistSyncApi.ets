@@ -1,5 +1,10 @@
 import type { GistSyncSettings } from '../model/GistSyncSettings';
-import { activeCredentialsFromSettings, GIST_PROVIDER_GITEE } from '../model/GistSyncSettings';
+import {
+  activeCredentialsFromSettings,
+  activeWebDavCredentialsFromSettings,
+  GIST_PROVIDER_GITEE,
+  isWebDavProvider
+} from '../model/GistSyncSettings';
 import {
   githubFetchGistRaw,
   extractGistFileText as githubExtractGistFileText,
@@ -10,12 +15,17 @@ import {
   giteeExtractGistFileText,
   giteePatchGistFiles
 } from './GiteeGistApi';
+import { webDavFetchFileText, webDavPutFileText } from './WebDavSyncApi';
 
 function useGitee(settings: GistSyncSettings): boolean {
   return settings.gistProvider === GIST_PROVIDER_GITEE;
 }
 
 export async function remoteFetchGistRaw(settings: GistSyncSettings): Promise<string> {
+  if (isWebDavProvider(settings)) {
+    const w = activeWebDavCredentialsFromSettings(settings);
+    return webDavFetchFileText(w.webDavUrl, w.username, w.password);
+  }
   const a = activeCredentialsFromSettings(settings);
   const token: string = a.gistToken.trim();
   const gid: string = a.gistId.trim();
@@ -30,6 +40,9 @@ export async function remoteExtractGistFileText(
   gistJson: string,
   fileName: string
 ): Promise<string> {
+  if (isWebDavProvider(settings)) {
+    return gistJson;
+  }
   const token: string = activeCredentialsFromSettings(settings).gistToken.trim();
   if (useGitee(settings)) {
     return giteeExtractGistFileText(token, gistJson, fileName);
@@ -42,6 +55,11 @@ export async function remotePatchGistFiles(
   fileName: string,
   fileContent: string
 ): Promise<void> {
+  if (isWebDavProvider(settings)) {
+    const w = activeWebDavCredentialsFromSettings(settings);
+    await webDavPutFileText(w.webDavUrl, w.username, w.password, fileContent);
+    return;
+  }
   const a = activeCredentialsFromSettings(settings);
   const token: string = a.gistToken.trim();
   const gid: string = a.gistId.trim();
