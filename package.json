@@ -8,6 +8,8 @@
   },
   "scripts": {
     "icons": "node scripts/regenerate-app-icon.cjs",
+    "icons:bg": "python scripts/extract-background.py",
+    "icons:fg": "python scripts/trace-foreground-svg.py && node scripts/regenerate-app-icon.cjs",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "devDependencies": {

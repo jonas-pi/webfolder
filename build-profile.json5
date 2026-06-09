@@ -32,7 +32,6 @@
       {
         "name": "default",
         "signingConfig": "DEBUG",
-        "compileSdkVersion": "6.0.2(22)",
         "targetSdkVersion": "6.0.2(22)",
         "compatibleSdkVersion": "6.0.2(22)",
         "arkTSVersion": "1.1",

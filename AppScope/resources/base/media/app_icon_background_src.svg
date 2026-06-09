@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- �(��o�
+�r� -->
+<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgGrad" x1="512" y1="0" x2="512" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#3BB7FC"/>
+      <stop offset="100%" stop-color="#0D7FFC"/>
+      <!-- ??? app_icon_source.png?top rgb(59,183,252) bottom rgb(13,127,252) -->
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bgGrad)"/>
+</svg>
