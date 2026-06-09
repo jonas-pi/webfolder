@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>隐私政策 — HM-BookmarkHub 浏览器扩展</title>
+  <style>
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif; line-height: 1.6; max-width: 46rem; margin: 0 auto; padding: 1.5rem; color: #1a1a1a; background: #fff; }
+    h1 { font-size: 1.5rem; margin-top: 0; }
+    h2 { font-size: 1.1rem; margin-top: 1.5rem; }
+    p, li { font-size: 0.95rem; }
+    .muted { color: #666; font-size: 0.85rem; margin-top: 2rem; }
+    a { color: #0969da; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #121212; color: #e6e6e6; }
+      .muted { color: #9aa0a6; }
+      a { color: #58a6ff; }
+    }
+  </style>
+</head>
+<body>
+  <h1>隐私政策</h1>
+  <p><strong>扩展名称：</strong>HM-BookmarkHub - 书签同步</p>
+  <p>本政策适用于 HM-BookmarkHub 浏览器扩展版本。本扩展用于在不同浏览器之间同步用户书签，可与 GitHub Gist 或 Gitee 代码片段配合使用。使用本扩展即表示您理解并同意本政策内容。</p>
+
+  <h2>1. 我们处理的信息</h2>
+  <p>本扩展<strong>不以盈利为目的收集您的个人信息</strong>，也<strong>不内置广告、分析 SDK 或跨站跟踪</strong>。为实现书签同步功能，本扩展会在您的浏览器本地处理以下信息：</p>
+  <ul>
+    <li><strong>书签数据</strong>：包括书签标题、网址、文件夹结构及浏览器书签树中的必要层级信息。该数据用于上传、拉取、合并和恢复书签。</li>
+    <li><strong>同步配置</strong>：包括同步服务类型（GitHub Gist 或 Gitee 代码片段）、片段 ID、片段文件名、自动同步间隔、是否启用通知、是否启用页面内浮动同步按钮等。</li>
+    <li><strong>认证信息</strong>：包括您通过 GitHub OAuth Device Flow 授权后获得的访问令牌，或您自行填写的 Gitee 私人令牌。令牌仅用于访问您自己配置的 Gist 或代码片段。</li>
+    <li><strong>本地同步状态</strong>：包括最近同步数量、远端版本时间、是否存在本地未上传修改、页面浮动按钮位置等，用于避免误覆盖和恢复界面状态。</li>
+  </ul>
+  <p>书签标题或网址可能由用户自行包含个人信息。本扩展不会主动分析这些内容，也不会将其用于广告、画像或与书签同步无关的用途。</p>
+
+  <h2>2. 数据如何使用</h2>
+  <ul>
+    <li>读取本地浏览器书签，并按用户操作上传到用户指定的 GitHub Gist 或 Gitee 代码片段。</li>
+    <li>在用户执行拉取、合并或手动同步时，从用户指定的远端片段读取书签数据，并写入本地浏览器书签。</li>
+    <li>按照用户设置的自动同步间隔检查远端更新；若本地存在未上传修改，会跳过可能覆盖本地数据的拉取操作。</li>
+    <li>在同步完成、失败或需要用户注意时显示浏览器通知或页面内提示。</li>
+    <li>在用户启用页面内浮动同步按钮时，在普通 http(s) 页面上显示本地控件，用于触发手动同步或展示同步结果。</li>
+  </ul>
+
+  <h2>3. 数据传输与第三方服务</h2>
+  <p>本扩展<strong>不运营用于接收书签或令牌的开发者服务器</strong>。当您启用云端同步时，书签数据和认证信息会在您的浏览器与您选择的第三方服务之间传输：</p>
+  <ul>
+    <li><strong>GitHub</strong>：用于 OAuth 授权、创建或访问您的私密 Gist，并读写其中的 BookmarkHub 同步文件。</li>
+    <li><strong>Gitee</strong>：用于通过您提供的私人令牌创建或访问您的私密代码片段，并读写其中的 BookmarkHub 同步文件。</li>
+  </ul>
+  <p>GitHub 和 Gitee 有其各自的服务条款和隐私政策。请妥善保管您的访问令牌，并仅在您信任的设备上配置同步。</p>
+
+  <h2>4. 权限说明</h2>
+  <ul>
+    <li><strong>storage</strong>：保存同步配置、令牌、本地同步状态和界面偏好。</li>
+    <li><strong>bookmarks</strong>：读取、创建、更新、移动和删除浏览器书签，以实现上传、拉取、合并和恢复功能。</li>
+    <li><strong>notifications</strong>：显示同步成功、失败或需要注意的结果提示。</li>
+    <li><strong>alarms</strong>：按用户设置的时间间隔触发自动拉取检查，并在浏览器启动后执行一次检查。</li>
+    <li><strong>tabs</strong>：查找当前活动的 http(s) 标签页，并向该页面发送同步结果提示；不用于读取网页正文或收集浏览历史。</li>
+    <li><strong>GitHub/Gitee 主机权限</strong>：访问 GitHub 和 Gitee API，以完成用户授权、创建、读取或更新用户自己的私密 Gist/代码片段。</li>
+    <li><strong>http(s) 页面内容脚本</strong>：用于显示可选的页面内手动同步浮动按钮和同步结果提示。该内容脚本不读取、修改或上传网页正文内容。</li>
+  </ul>
+
+  <h2>5. 远程代码说明</h2>
+  <p>本扩展<strong>不使用远程代码</strong>。所有 JavaScript、CSS、图标和界面资源均随扩展包一起发布。本扩展不会从远程服务器下载或执行未打包的 JavaScript/Wasm，也不会使用 eval 执行远程字符串。</p>
+
+  <h2>6. 数据共享、出售与广告</h2>
+  <ul>
+    <li>本扩展不会向第三方出售或转让用户数据。</li>
+    <li>本扩展不会将用户数据用于与书签同步无关的目的。</li>
+    <li>本扩展不会使用或转移用户数据来判断信用状况或用于贷款目的。</li>
+    <li>本扩展不包含广告、广告跟踪、分析 SDK 或开发者自有的用户画像服务。</li>
+  </ul>
+
+  <h2>7. 数据保存、删除与撤回</h2>
+  <ul>
+    <li>您可以在扩展设置中删除或替换访问令牌、片段 ID 和同步配置。</li>
+    <li>您可以在 GitHub 或 Gitee 中撤销访问令牌，或删除对应的 Gist/代码片段。</li>
+    <li>您可以通过浏览器扩展管理页面清除扩展数据或卸载扩展。卸载后，本地扩展存储会由浏览器按其规则清理。</li>
+    <li>删除远端 Gist/代码片段后，已上传到该第三方服务的书签同步数据将不再由本扩展访问。</li>
+  </ul>
+
+  <h2>8. 未成年人</h2>
+  <p>若您为未成年人，请在监护人指导下使用本扩展，并谨慎配置第三方同步服务和访问令牌。</p>
+
+  <h2>9. 政策更新</h2>
+  <p>我们可能随扩展版本更新修订本政策。更新后的版本将在本页面或通过扩展说明、应用商店页面等适当方式提示。若修订涉及数据处理方式的重大变化，我们将通过合理方式提醒您。</p>
+
+  <h2>10. 联系我们</h2>
+  <p>若您对本政策有疑问，可通过以下邮箱联系开发者：</p>
+  <p><a href="mailto:pichaomeng@gmail.com">pichaomeng@gmail.com</a></p>
+  <p>您也可通过应用商店或项目公开页面进行反馈。</p>
+
+  <p class="muted">最后更新日期：2026 年 6 月 9 日</p>
+</body>
+</html>
