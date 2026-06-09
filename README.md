@@ -15,13 +15,13 @@
 
 ## 截图
 
-| 收藏夹 | 导入 | 搜索 |
+| 收藏夹 | 搜索 | 我的 |
 | :---: | :---: | :---: |
-| <img src="docs/收藏夹页面展示.jpg" width="200" /> | <img src="docs/收藏夹页面导入按钮展示.jpg" width="200" /> | <img src="docs/搜索页面展示.jpg" width="200" /> |
+| <img src="docs/1_首页.png" width="200" /> | <img src="docs/2_搜索页.png" width="200" /> | <img src="docs/3_我的页.png" width="200" /> |
 
-| 切换搜索引擎 | 搜索设置 | 背景 |
+| GitHub 同步 | Gitee 同步 | WebDAV 同步 |
 | :---: | :---: | :---: |
-| <img src="docs/临时切换搜索引擎展示.jpg" width="200" /> | <img src="docs/切换默认搜索引擎展示.jpg" width="200" /> | <img src="docs/更换背景展示.jpg" width="200" /> |
+| <img src="docs/4_github配置页.png" width="200" /> | <img src="docs/5_gitee配置页.png" width="200" /> | <img src="docs/6_webdav配置页.png" width="200" /> |
 
 ## 在电脑导出 HTML 书签
 
